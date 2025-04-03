@@ -1,0 +1,86 @@
+.detection-results::-webkit-scrollbar {
+    width: 0;
+    background-color: transparent;
+}
+
+.detection-results::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+
+.detection-results::-webkit-scrollbar-thumb {
+    background-color: #F79C72;
+    border-radius: 10px;
+}
+
+.detection-results::-webkit-scrollbar-thumb:hover {
+    background-color: #ff8147;
+}
+
+.content-result {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.detection-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 5vw;
+    position: absolute;
+    right: 0;
+}
+
+.detection-results {
+    width: 20vw;
+    height: 50vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid #F79C72;
+    border-radius: 10px;
+}
+
+.log div {
+    padding: 0.5em;
+}
+
+.detection-results h2 {
+    display: flex;
+    justify-content: center;
+}
+
+.buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 3vh;
+}
+
+.buttons button {
+    margin: 0 1vw;
+    border: none;
+    width: 12vw;
+    height: 6vh;
+    border-radius: 20px;
+    background-color: #F79C72;
+    border: 1px solid #f5f5f5;
+    font-size: 3.3vh;
+    color: #f5f5f5;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.buttons button:hover {
+    background-color: #ff8147;
+}
+
+.player-wrapper {
+    margin-top: 5vh;
+    border-radius: 30px;
+    overflow: hidden;
+}
+
+.react-player {
+    border-radius: 30px;
+}

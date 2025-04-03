@@ -1,0 +1,99 @@
+.content-main {
+    display: flex;
+    height: 90vh;
+    width: 100vw;
+}
+
+.left {
+    display: flex;
+    justify-content: left;
+    align-items: flex-end;
+    width: 30vw;
+}
+
+.center {
+    display: flex;
+    width: 40vw;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    margin-top: -20vh;
+}
+
+.right {
+    display: flex;
+    width: 30vw;
+    margin-top: 5vh;
+    justify-content: right;
+    align-items: flex-start;
+}
+
+.robot {
+    width: 35vw;
+    height: 50vh;
+    margin-left: 5vw;
+    margin-bottom: 7vh;
+    transform: rotate(-15deg);
+}
+
+.hands {
+    width: 12vw;
+    height: 15vh;
+}
+
+.cctv {
+    width: 17vw;
+    height: 35vh;
+}
+
+.file-name {
+    display: flex;
+    justify-content: center;
+    font-size: 2vh;
+    margin-bottom: -2vh;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;    
+}
+
+.processing-text {
+    font-size: 2vh;
+    margin-bottom: -1vh;
+}
+
+.circle {
+    margin-top: 2vh;
+    width: 4vw;
+}
+
+.center-text {
+    font-size: 3.5vh;
+    font-family: 'Roboto', sans-serif;
+}
+
+.center button {
+    border: none;
+    width: 12vw;
+    height: 6vh;
+    border-radius: 20px;
+    background-color: #F79C72;
+    border: 1px solid #f5f5f5;
+    font-size: 3.3vh;
+    color: #f5f5f5;
+    
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.center button:hover {
+    background-color: #ff8147;
+}
+
+.buttons button{
+    margin-left: 0.5vw;
+    margin-right: 0.5vw;
+}

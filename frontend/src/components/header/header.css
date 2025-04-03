@@ -1,0 +1,13 @@
+.header {
+    width: 100vw;
+    height: 7vh;
+    border-bottom: 1px solid #f5f5f5;
+    color: #f5f5f5;
+    font-size: 20px;
+    align-items: center;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 4vh;
+}
