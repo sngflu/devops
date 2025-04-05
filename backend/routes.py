@@ -33,6 +33,34 @@ def token_required(f):
     return decorated
 
 
+def save_users():
+    with open("config/users.json", "w") as f:
+        json.dump({"users": USERS}, f, indent=2)
+
+
+@bp.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"message": "Username and password are required"}), 400
+
+    if username in USERS:
+        return jsonify({"message": "Username already exists"}), 400
+
+    USERS[username] = password
+    save_users()
+
+    token = jwt.encode(
+        {"user": username},
+        SECRET_KEY,
+    )
+
+    return jsonify({"token": token}), 201
+
+
 @bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()

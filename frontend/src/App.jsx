@@ -4,6 +4,7 @@ import Header from './components/header/header';
 import MainPage from './components/mainPage/mainPage';
 import ResultPage from './components/resultPage/resultPage';
 import Login from './components/loginPage/login';
+import Register from './components/registerPage/register';
 import VideoCatalog from './components/videoCatalog/videoCatalog';
 import './App.css';
 
@@ -22,11 +23,11 @@ function App() {
     return children;
   };
 
-  const LoginRoute = () => {
+  const AuthRoute = ({ children }) => {
     if (isAuthenticated) {
       return <Navigate to="/" />;
     }
-    return <Login />;
+    return children;
   };
 
   return (
@@ -36,7 +37,16 @@ function App() {
           <Header>Weapon Detection</Header>
         </div>
         <Routes>
-          <Route path="/login" element={<LoginRoute />} />
+          <Route path="/login" element={
+            <AuthRoute>
+              <Login />
+            </AuthRoute>
+          } />
+          <Route path="/register" element={
+            <AuthRoute>
+              <Register />
+            </AuthRoute>
+          } />
           <Route path="/" element={
             <ProtectedRoute>
               <MainPage />

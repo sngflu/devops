@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import axios from 'axios';
-import './login.css';
+import './register.css';
 
-const Login = () => {
+const Register = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -10,7 +10,7 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://127.0.0.1:5174/login', {
+            const response = await axios.post('http://127.0.0.1:5174/register', {
                 username,
                 password
             });
@@ -20,15 +20,15 @@ const Login = () => {
                 window.location.href = '/';
             }
         } catch (error) {
-            setError('Invalid username or password');
+            setError(error.response?.data?.message || 'Registration failed');
         }
     };
 
     return (
-        <div className="login-container">
-            <div className="login-left"></div>
-            <div className="login-form">
-                <h2>Login</h2>
+        <div className="register-container">
+            <div className="register-left"></div>
+            <div className="register-form">
+                <h2>Register</h2>
                 {error && <p className="error">{error}</p>}
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -47,15 +47,15 @@ const Login = () => {
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
-                    <button type="submit">Login</button>
+                    <button type="submit">Register</button>
                 </form>
-                <p className="register-link">
-                    Don't have an account? <a href="/register">Register here</a>
+                <p className="login-link">
+                    Already have an account? <a href="/login">Login here</a>
                 </p>
             </div>
-            <div className='login-right'></div>
+            <div className='register-right'></div>
         </div>
     );
 };
 
-export default Login;
+export default Register;
