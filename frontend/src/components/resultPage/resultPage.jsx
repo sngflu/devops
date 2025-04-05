@@ -51,40 +51,43 @@ const ResultPage = () => {
         }
     };
 
+    // В компоненте ResultPage измените разметку на:
     return (
         <div className="content-result">
-            <div className="player-container">
-                <div className="player-wrapper">
-                    {videoUrl && (
-                        <ReactPlayer
-                            url={videoUrl}
-                            width="45vw"
-                            height="50vh"
-                            controls
-                            className="react-player"
-                            playing={true}
-                            config={{
-                                file: {
-                                    attributes: {
-                                        controlsList: 'nodownload',
-                                        crossOrigin: 'anonymous'
+            <div className="main-container">
+                <div></div> {/* Левая пустая секция */}
+
+                <div className="player-section">
+                    <div className="player-wrapper">
+                        {videoUrl && (
+                            <ReactPlayer
+                                url={videoUrl}
+                                controls
+                                playing
+                                config={{
+                                    file: {
+                                        attributes: {
+                                            controlsList: 'nodownload',
+                                            crossOrigin: 'anonymous'
+                                        }
                                     }
-                                }
-                            }}
-                        />
-                    )}
+                                }}
+                            />
+                        )}
+                    </div>
+                    <div className="buttons">
+                        <Link to="/">
+                            <button>Home</button>
+                        </Link>
+                        <button onClick={handleDownload}>Download</button>
+                    </div>
                 </div>
-                <div className="buttons">
-                    <Link to="/">
-                        <button>Home</button>
-                    </Link>
-                    <button onClick={handleDownload}>Download</button>
-                </div>
-            </div>
-            <div className="detection-container">
-                <h2>Detection Log</h2>
-                <div className="detection-results">
-                    <DetectionResults frameObjects={state.frame_objects} />
+
+                <div className="detection-container">
+                    <h2>Detection Log</h2>
+                    <div className="detection-results">
+                        <DetectionResults frameObjects={state.frame_objects} />
+                    </div>
                 </div>
             </div>
         </div>

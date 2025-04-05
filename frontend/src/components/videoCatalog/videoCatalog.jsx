@@ -180,33 +180,35 @@ const VideoCatalog = () => {
             {selectedVideo && (
                 <div className="video-detail">
                     <h2>{selectedVideo.original_name}</h2>
-                    <div className="video-player-wrapper">
-                        {videoUrl && (
-                            <ReactPlayer
-                                url={videoUrl}
-                                width="100%"
-                                height="100%"
-                                controls
-                                playing={false}
-                                className="react-player"
-                                config={{
-                                    file: {
-                                        attributes: {
-                                            crossOrigin: 'anonymous'
+                    <div className='video-logs'>
+                        <div className="video-player-wrapper">
+                            {videoUrl && (
+                                <ReactPlayer
+                                    url={videoUrl}
+                                    width="100%"
+                                    height="100%"
+                                    controls
+                                    playing={false}
+                                    className="react-player"
+                                    config={{
+                                        file: {
+                                            attributes: {
+                                                crossOrigin: 'anonymous'
+                                            }
                                         }
-                                    }
-                                }}
-                            />
-                        )}
-                    </div>
-                    <div className="logs-container">
-                        <h3>Detection Logs</h3>
-                        <div className="logs-list">
-                            {logs.map((log, index) => (
-                                <div key={index} className="log-item">
-                                    <p>Frame {log[0]}: {log[1]} weapons, {log[2]} knives detected</p>
-                                </div>
-                            ))}
+                                    }}
+                                />
+                            )}
+                        </div>
+                        <div className="logs-container">
+                            <h3>Detection Logs</h3>
+                            <div className="logs-list">
+                                {logs.map((log, index) => (
+                                    <div key={index} className="log-item">
+                                        <p>Frame {log[0]}: {log[1]} weapons, {log[2]} knives detected</p>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
