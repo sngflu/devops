@@ -13,7 +13,6 @@ video_directory = "runs/detect/predict/"
 def convert_avi_to_mp4(input_file, output_file):
     try:
         video = VideoFileClip(input_file)
-
         video.write_videofile(
             output_file,
             codec="libx264",

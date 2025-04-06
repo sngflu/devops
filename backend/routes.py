@@ -122,18 +122,56 @@ def serve_video(filename):
         return jsonify({"message": "Unauthorized"}), 401
 
     try:
-        response = send_from_directory(
-            video_storage.VIDEOS_DIR,
-            filename,
-            as_attachment=False,
-            conditional=True,
-        )
-        return response
+        # Проверяем, используется ли Minio
+        if video_storage.is_minio_enabled():
+            # Если используется Minio, возвращаем временную ссылку
+            video_url = video_storage.get_video_path(filename)
+            if video_url:
+                # Делаем редирект на временную ссылку
+                return jsonify({"url": video_url}), 200
+            else:
+                return jsonify({"message": "Video not found in Minio"}), 404
+        else:
+            # Иначе отдаем файл из локального хранилища
+            response = send_from_directory(
+                video_storage.VIDEOS_DIR,
+                filename,
+                as_attachment=False,
+                conditional=True,
+            )
+            return response
     except Exception as e:
         return str(e), 404
 
     except Exception as e:
         print(f"Error in serve_video: {e}")
+        return str(e), 500
+
+
+@bp.route("/video/<path:filename>/url")
+@token_required
+def get_video_url(filename):
+    """Получить временную ссылку на видео из Minio"""
+    token = request.headers.get("Authorization").split(" ")[1]
+    user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    username = user_data["user"]
+
+    if not filename.startswith(f"{username}_"):
+        return jsonify({"message": "Unauthorized"}), 401
+
+    try:
+        if video_storage.is_minio_enabled():
+            # Получаем временную ссылку на видео из Minio
+            video_url = video_storage.get_video_path(filename)
+            if video_url:
+                return jsonify({"url": video_url}), 200
+            else:
+                return jsonify({"message": "Video not found in Minio"}), 404
+        else:
+            # Если Minio не используется, возвращаем локальный URL
+            return jsonify({"url": f"/video/{filename}"}), 200
+    except Exception as e:
+        print(f"Error in get_video_url: {e}")
         return str(e), 500
 
 
