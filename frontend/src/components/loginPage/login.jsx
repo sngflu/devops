@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 import './login.css';
 
 const Login = () => {
@@ -12,7 +12,7 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://127.0.0.1:5174/login', {
+            const response = await axiosInstance.post('/login', {
                 username,
                 password
             });
@@ -22,6 +22,7 @@ const Login = () => {
                 window.location.href = '/';
             }
         } catch (error) {
+            console.error('Login error:', error);
             setError('Invalid username or password');
         }
     };
