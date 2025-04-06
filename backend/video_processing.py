@@ -52,20 +52,33 @@ def process_video(filename, confidence_threshold=0.25, username=None):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base_filename = os.path.splitext(filename)[0]
     new_filename = f"{username}_{timestamp}_{base_filename}.mp4"
-
-    processed_avi = os.path.join("runs", "detect", "predict", filename[:-3] + "avi")
     final_video_path = os.path.join(video_storage.VIDEOS_DIR, new_filename)
 
-    conversion_success = convert_avi_to_mp4(processed_avi, final_video_path)
-
-    if not conversion_success:
-        print("Conversion failed, trying direct copy...")
-        shutil.copy2(processed_avi, final_video_path)
+    # Проверяем, создала ли модель MP4 файл
+    processed_mp4 = os.path.join("runs", "detect", "predict", filename[:-3] + "mp4")
+    processed_avi = os.path.join("runs", "detect", "predict", filename[:-3] + "avi")
+    
+    if os.path.exists(processed_mp4):
+        # Если модель создала MP4, просто копируем его
+        shutil.copy2(processed_mp4, final_video_path)
+        print(f"Найден MP4 файл, копирование: {processed_mp4}")
+    elif os.path.exists(processed_avi):
+        # Если модель создала AVI, конвертируем в MP4
+        print(f"Найден AVI файл, конвертация: {processed_avi}")
+        conversion_success = convert_avi_to_mp4(processed_avi, final_video_path)
+        if not conversion_success:
+            print("Конвертация не удалась, пробуем прямое копирование...")
+            shutil.copy2(processed_avi, final_video_path)
+    else:
+        print(f"Не найдены ни MP4, ни AVI файлы в {video_directory}")
 
     video_storage.save_log(new_filename, frame_objects)
 
+    # Очистка временных файлов
     if os.path.exists(filename):
         os.remove(filename)
+    if os.path.exists(processed_mp4):
+        os.remove(processed_mp4)
     if os.path.exists(processed_avi):
         os.remove(processed_avi)
     if os.path.exists(video_directory):
