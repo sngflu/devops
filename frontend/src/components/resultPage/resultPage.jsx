@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import ReactPlayer from 'react-player';
-import axiosInstance from '../../utils/axios';
 import DetectionResults from '../detectionResult/detectionResults';
 import './resultPage.css';
 
@@ -51,11 +50,10 @@ const ResultPage = () => {
         }
     };
 
-    // В компоненте ResultPage измените разметку на:
     return (
         <div className="content-result">
             <div className="main-container">
-                <div></div> {/* Левая пустая секция */}
+                <div></div>
 
                 <div className="player-section">
                     <div className="player-wrapper">
@@ -64,6 +62,7 @@ const ResultPage = () => {
                                 url={videoUrl}
                                 controls
                                 playing
+                                data-testid="react-player"
                                 config={{
                                     file: {
                                         attributes: {
