@@ -36,15 +36,23 @@ def token_required(f):
 @bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
+    print(f"Login attempt with data: {data}")
     username = data.get("username")
     password = data.get("password")
+
+    print(f"Users config: {USERS}")
+    print(f"Checking username: {username}, password: {password}")
+    print(f"Username exists: {username in USERS}")
+    if username in USERS:
+        print(f"Stored password: {USERS[username]}")
+        print(f"Password match: {USERS[username] == password}")
 
     if username in USERS and USERS[username] == password:
         token = jwt.encode(
             {"user": username},
             SECRET_KEY,
         )
-
+        print(f"Generated token: {token}")
         return jsonify({"token": token})
 
     return jsonify({"message": "Invalid credentials"}), 401

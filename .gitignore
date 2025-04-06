@@ -1,0 +1,47 @@
+# Зависимости
+node_modules/
+frontend/node_modules/
+backend/venv/
+.env
+.env.*
+!.env.example
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Директории сборки
+dist/
+build/
+frontend/dist/
+frontend/build/
+.cache/
+
+# Файлы моделей и большие файлы данных
+*.pt
+*.pth
+*.h5
+*.ckpt
+*.weights
+
+# Видео и медиа
+backend/storage/videos/
+backend/storage/logs/
+*.mp4
+*.avi
+*.mov
+*.flv
+
+# Временные файлы
+*.log
+*.tmp
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
