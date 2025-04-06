@@ -1,6 +1,6 @@
-import os
-import json
 from datetime import datetime
+import json
+import os
 
 STORAGE_DIR = "storage"
 VIDEOS_DIR = os.path.join(STORAGE_DIR, "videos")
@@ -53,7 +53,7 @@ def get_user_videos(username):
 
 
 def delete_video(username, filename):
-    if not filename.startswith(username):
+    if not filename.startswith(f"{username}_"):
         return False, "Unauthorized"
 
     video_path = os.path.join(VIDEOS_DIR, filename)
@@ -70,7 +70,7 @@ def delete_video(username, filename):
 
 
 def get_video_logs(username, filename):
-    if not filename.startswith(username):
+    if not filename.startswith(f"{username}_"):
         return None
 
     log_path = os.path.join(LOGS_DIR, f"{filename}.json")
@@ -81,7 +81,7 @@ def get_video_logs(username, filename):
 
 
 def rename_video(username, old_filename, new_name):
-    if not old_filename.startswith(username):
+    if not old_filename.startswith(f"{username}_"):
         return False, "Unauthorized"
 
     try:

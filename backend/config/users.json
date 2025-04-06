@@ -1,6 +1,5 @@
 {
   "users": {
-    "admin": "zxc",
-    "user": "zxczxc"
+    "admin": "scrypt:32768:8:1$nakd5DnURAKpyWrw$52001961656b443ee24b30447f2aebab8e8e3562b9c9060b663ecea56aae3b9902321871e45cf5bc97fd302d82807680430017ae10405929378b418b7eddb5ca"
   }
 }

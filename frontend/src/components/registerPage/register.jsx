@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 import './register.css';
 
 const Register = () => {
@@ -10,7 +10,7 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://127.0.0.1:5174/register', {
+            const response = await axiosInstance.post('http://127.0.0.1:5174/register', {
                 username,
                 password
             });

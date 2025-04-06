@@ -1,10 +1,10 @@
+from moviepy.editor import *
+from datetime import datetime
 import cv2
 import os
-from moviepy.editor import *
-import model
-from datetime import datetime
-import video_storage
 import shutil
+import model
+import video_storage
 
 
 video_directory = "runs/detect/predict/"

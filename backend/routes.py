@@ -1,8 +1,11 @@
 from flask import Blueprint, request, jsonify, send_from_directory
-import video_processing, video_storage
-import jwt
+from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import json
+import jwt
+import os
+import video_processing, video_storage
+
 
 bp = Blueprint("routes", __name__, url_prefix="")
 
@@ -50,7 +53,8 @@ def register():
     if username in USERS:
         return jsonify({"message": "Username already exists"}), 400
 
-    USERS[username] = password
+    hashed_password = generate_password_hash(password)
+    USERS[username] = hashed_password
     save_users()
 
     token = jwt.encode(
@@ -67,12 +71,11 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    if username in USERS and USERS[username] == password:
+    if username in USERS and check_password_hash(USERS[username], password):
         token = jwt.encode(
             {"user": username},
             SECRET_KEY,
         )
-
         return jsonify({"token": token})
 
     return jsonify({"message": "Invalid credentials"}), 401
@@ -111,39 +114,23 @@ def processing():
 @bp.route("/video/<path:filename>")
 @token_required
 def serve_video(filename):
+    token = request.headers.get("Authorization").split(" ")[1]
+    user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    username = user_data["user"]
+
+    if not filename.startswith(f"{username}_"):
+        return jsonify({"message": "Unauthorized"}), 401
+
     try:
-        token = request.headers.get("Authorization")
-        if not token:
-            return jsonify({"message": "Token is missing"}), 401
-
-        try:
-            token = token.split(" ")[1]
-            user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            username = user_data["user"]
-
-            if not filename.startswith(username):
-                return jsonify({"message": "Unauthorized"}), 401
-
-            response = send_from_directory(
-                video_storage.VIDEOS_DIR,
-                filename,
-                as_attachment=False,
-                conditional=True,
-            )
-
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = (
-                "Authorization, Content-Type"
-            )
-            response.headers["Content-Type"] = "video/mp4"
-
-            return response
-        except jwt.InvalidTokenError:
-            return jsonify({"message": "Invalid token"}), 401
-        except Exception as e:
-            print(f"Error serving video: {e}")
-            return str(e), 404
+        response = send_from_directory(
+            video_storage.VIDEOS_DIR,
+            filename,
+            as_attachment=False,
+            conditional=True,
+        )
+        return response
+    except Exception as e:
+        return str(e), 404
 
     except Exception as e:
         print(f"Error in serve_video: {e}")
@@ -157,7 +144,24 @@ def get_videos():
     user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
     username = user_data["user"]
 
-    videos = video_storage.get_user_videos(username)
+    videos = []
+    for filename in os.listdir(video_storage.VIDEOS_DIR):
+        if filename.startswith(f"{username}_"):
+            log_path = os.path.join(video_storage.LOGS_DIR, f"{filename}.json")
+            if os.path.exists(log_path):
+                with open(log_path, "r") as f:
+                    logs = json.load(f)
+                    log_count = sum(1 for log in logs if log[1] > 0 or log[2] > 0)
+
+                original_name = "_".join(filename.split("_")[3:])
+                videos.append(
+                    {
+                        "filename": filename,
+                        "original_name": original_name,
+                        "log_count": log_count,
+                    }
+                )
+
     return jsonify(videos)
 
 
