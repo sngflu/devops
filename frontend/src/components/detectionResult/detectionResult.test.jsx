@@ -4,34 +4,41 @@ import DetectionResults from './detectionResults';
 
 describe('DetectionResults Component', () => {
     const mockFrameObjects = [
-        [1, 2, 0],
-        [2, 0, 0],
-        [3, 0, 1],
-        [4, 1, 1]
+        [1, 2, 0],  // Frame 1: 2 weapons
+        [2, 0, 0],  // Frame 2: no detections
+        [3, 0, 1],  // Frame 3: 1 knife
+        [4, 1, 1]   // Frame 4: 1 weapon, 1 knife
     ];
 
     it('renders detection results correctly', () => {
-        render(<DetectionResults frameObjects={mockFrameObjects} fpsCount={30} />);
+        render(<DetectionResults
+            frameObjects={mockFrameObjects}
+            onFrameClick={() => { }}
+            currentFrame={null}
+        />);
 
-        expect(screen.getByText('Frame 1: 2 weapons, 0 knives')).toBeInTheDocument();
-        expect(screen.getByText('Frame 3: 0 weapons, 1 knives')).toBeInTheDocument();
-        expect(screen.getByText('Frame 4: 1 weapons, 1 knives')).toBeInTheDocument();
-
-        expect(screen.queryByText('Frame 2: 0 weapons, 0 knives')).not.toBeInTheDocument();
+        // Check for new message format
+        expect(screen.getByText(/Frame 1\. Detected weapon\./)).toBeInTheDocument();
+        expect(screen.getByText(/Frame 3\. Detected knife\./)).toBeInTheDocument();
+        expect(screen.getByText(/Frame 4\. Detected weapon and knife\./)).toBeInTheDocument();
+        // Frame 2 should not be displayed as it has no detections
+        expect(screen.queryByText(/Frame 2\./)).not.toBeInTheDocument();
     });
 
     it('handles frame click correctly', () => {
+        const mockOnFrameClick = vi.fn();
         const videoElement = { currentTime: 0 };
         document.querySelector = vi.fn().mockReturnValue(videoElement);
 
-        render(<DetectionResults frameObjects={mockFrameObjects} fpsCount={30} />);
+        render(<DetectionResults
+            frameObjects={mockFrameObjects}
+            onFrameClick={mockOnFrameClick}
+            currentFrame={null}
+        />);
 
-        fireEvent.click(screen.getByText('Frame 1: 2 weapons, 0 knives'));
+        const firstLog = screen.getByText(/Frame 1\. Detected weapon\./);
+        fireEvent.click(firstLog);
 
-        expect(videoElement.currentTime).toBe(1 / 60);
-
-        fireEvent.click(screen.getByText('Frame 4: 1 weapons, 1 knives'));
-
-        expect(videoElement.currentTime).toBe(4 / 60);
+        expect(mockOnFrameClick).toHaveBeenCalledWith(1);
     });
 });

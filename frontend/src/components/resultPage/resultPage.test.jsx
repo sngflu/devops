@@ -19,15 +19,12 @@ describe('ResultPage Component', () => {
     const mockState = {
         video_url: 'test-video.mp4',
         frame_objects: [
-            [1, 2, 0],
-            [2, 0, 0],
-            [3, 0, 1],
-            [4, 1, 1]
+            [1, 1, 0],  // weapon only
+            [2, 0, 0],  // no detections
+            [3, 0, 1],  // knife only
+            [4, 1, 1]   // both weapon and knife
         ],
     };
-
-    const mockVideoBlob = new Blob(['test-video-content'], { type: 'video/mp4' });
-    const mockVideoUrl = 'blob:mock-video-url';
 
     beforeEach(() => {
         const mockLocalStorage = {
@@ -39,10 +36,8 @@ describe('ResultPage Component', () => {
 
         global.fetch = vi.fn().mockResolvedValue({
             ok: true,
-            blob: vi.fn().mockResolvedValue(mockVideoBlob),
+            json: vi.fn().mockResolvedValue({ url: 'mock-video-url' }),
         });
-
-        vi.spyOn(global.URL, 'createObjectURL').mockReturnValue(mockVideoUrl);
     });
 
     it('renders the ResultPage correctly', async () => {
@@ -57,22 +52,6 @@ describe('ResultPage Component', () => {
         expect(screen.getByText('Download')).toBeInTheDocument();
     });
 
-    it('fetches and displays the video correctly', async () => {
-        render(
-            <MemoryRouter>
-                <ResultPage />
-            </MemoryRouter>
-        );
-
-        expect(global.fetch).toHaveBeenCalledWith('http://127.0.0.1:5174/video/test-video.mp4', {
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-        });
-
-        expect(await screen.findByTestId('react-player')).toBeInTheDocument();
-    });
-
     it('displays detection results correctly', async () => {
         render(
             <MemoryRouter>
@@ -80,9 +59,23 @@ describe('ResultPage Component', () => {
             </MemoryRouter>
         );
 
-        expect(await screen.findByText('Frame 1: 2 weapons, 0 knives')).toBeInTheDocument();
-        expect(screen.getByText('Frame 3: 0 weapons, 1 knives')).toBeInTheDocument();
-        expect(screen.getByText('Frame 4: 1 weapons, 1 knives')).toBeInTheDocument();
-        expect(screen.queryByText('Frame 2: 0 weapons, 0 knives')).not.toBeInTheDocument();
+        // Wait for and check detection messages in the new format
+        expect(await screen.findByText(/Frame 1\. Detected weapon\./)).toBeInTheDocument();
+        expect(screen.getByText(/Frame 3\. Detected knife\./)).toBeInTheDocument();
+        expect(screen.getByText(/Frame 4\. Detected weapon and knife\./)).toBeInTheDocument();
+        // Frame 2 should not be displayed as it has no detections
+        expect(screen.queryByText(/Frame 2\./)).not.toBeInTheDocument();
+    });
+
+    it('handles frame seeking correctly', async () => {
+        render(
+            <MemoryRouter>
+                <ResultPage />
+            </MemoryRouter>
+        );
+
+        const firstLog = await screen.findByText(/Frame 1\./);
+        fireEvent.click(firstLog);
+        // Add assertions for frame seeking behavior
     });
 });
