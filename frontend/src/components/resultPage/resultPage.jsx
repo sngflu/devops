@@ -20,9 +20,8 @@ const ResultPage = () => {
                 });
 
                 if (response.ok) {
-                    const blob = await response.blob();
-                    const url = URL.createObjectURL(blob);
-                    setVideoUrl(url);
+                    const data = await response.json();
+                    setVideoUrl(data.url);
                 } else {
                     console.error('Failed to fetch video:', response.status);
                 }
@@ -32,22 +31,27 @@ const ResultPage = () => {
         };
 
         fetchVideo();
-
-        return () => {
-            if (videoUrl) {
-                URL.revokeObjectURL(videoUrl);
-            }
-        };
     }, [state.video_url, token]);
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (videoUrl) {
-            const link = document.createElement('a');
-            link.href = videoUrl;
-            link.download = state.video_url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                const response = await fetch(videoUrl);
+                if (!response.ok) {
+                    throw new Error(`Ошибка при загрузке файла: ${response.statusText}`);
+                }
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = state.video_url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('Ошибка при скачивании файла:', error);
+            }
         }
     };
 

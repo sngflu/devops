@@ -26,7 +26,7 @@ function start_project() {
     # Запуск бэкенда
     echo "🔧 Запуск backend..."
     cd backend
-    python main.py > ../backend.log 2>&1 &
+    python wsgi.py > ../backend.log 2>&1 &
     BACKEND_PID=$!
     echo $BACKEND_PID > ../backend.pid
     cd ..
@@ -63,7 +63,7 @@ function stop_project() {
         rm backend.pid
     else
         echo "🔧 Файл с PID для backend не найден"
-        pkill -f "python main.py" || true
+        pkill -f "python wsgi.py" || true
     fi
     
     # Остановка фронтенда

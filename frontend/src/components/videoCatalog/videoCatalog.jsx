@@ -43,9 +43,8 @@ const VideoCatalog = () => {
             );
 
             if (videoResponse.ok) {
-                const blob = await videoResponse.blob();
-                const url = URL.createObjectURL(blob);
-                setVideoUrl(url);
+                const data = await videoResponse.json();
+                setVideoUrl(data.url);
             }
 
             setSelectedVideo(video);
@@ -55,13 +54,27 @@ const VideoCatalog = () => {
         }
     };
 
-    useEffect(() => {
-        return () => {
-            if (videoUrl) {
-                URL.revokeObjectURL(videoUrl);
+    const handleDownload = async () => {
+        if (videoUrl && selectedVideo) {
+            try {
+                const response = await fetch(videoUrl);
+                if (!response.ok) {
+                    throw new Error(`Ошибка при загрузке файла: ${response.statusText}`);
+                }
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = selectedVideo.original_name || selectedVideo.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('Ошибка при скачивании файла:', error);
             }
-        };
-    }, [videoUrl]);
+        }
+    };
 
     const handleDelete = async (video) => {
         if (!confirm('Are you sure you want to delete this video?')) return;
@@ -211,6 +224,9 @@ const VideoCatalog = () => {
                             </div>
                         </div>
                     </div>
+                    <button onClick={handleDownload} className="rename-btn" style={{marginTop: '10px'}}>
+                        Скачать видео
+                    </button>
                 </div>
             )}
         </div>
