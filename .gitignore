@@ -1,3 +1,15 @@
 __pychache__/
 storage/
 *.pyc
+
+# Игнорировать все видеофайлы
+*.mp4
+*.avi 
+
+*.log
+*.pid
+
+# Игнорировать файлы Cursor
+.cursor/
+node_modules/
+

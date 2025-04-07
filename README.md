@@ -1,63 +1,111 @@
-# Project Setup Guide
+# Приложение для анализа видео с интеграцией MinIO
 
-Thank you for your interest in this project! Here's a step-by-step guide on how to set up and run this project on your local machine.
+## Описание
 
-## Prerequisites
+Это приложение предназначено для анализа видеозаписей, обнаружения оружия и ножей на видео и сохранения результатов. В качестве хранилища данных используется MinIO - S3-совместимое объектное хранилище.
 
-Before you start, ensure you have the following software installed on your system:
+## Требования
 
-1. **Python (version 3.9 or later)** - To check if Python is already installed, run python --version or python3 --version in your terminal.
+- Docker и Docker Compose
+- Python 3.10+
 
-2. **pip (version 19.0 or later)** - Python's package installer. It comes bundled with Python. To check if pip is installed, run pip --version or pip3 --version in your terminal.
+## Запуск приложения
 
-3. **Node.js (version 14 or later)** - To check if Node.js is already installed, run `node -v` in your terminal.
-
-4. **npm (version 6 or later)** - This comes bundled with Node.js. To check if npm is installed, run `npm -v` in your terminal.
-
-5. **A modern web browser** - This project has been tested on the latest versions of Chrome, Firefox, Safari etc.
-
-## Getting Started
-
-Follow these steps to get the project up and running:
-
-1. **Clone the repository** - You can do this by running the following command in your terminal:
-
+1. Клонируйте репозиторий:
    ```
-   git clone https://github.com/sngflu/devops.git
+   git clone <repository-url>
+   cd <repository-directory>
    ```
 
-2. **Navigate to the project directory** - Use the `cd` command to navigate into the project directory:
-
+2. Запустите контейнеры с помощью Docker Compose:
    ```
-   cd devops
-   ```
-
-3. **Install dependencies** - Run the following command (frontend directory) to install all the dependencies required for the project:
-
-   ```
-   npm install
+   docker-compose up -d
    ```
 
-4. **Install requirements** - Run the following command (backend directory) to install all the dependencies required for the project:
+3. Приложение будет доступно по адресу:
+   - Backend API: http://localhost:5174
+   - MinIO Console: http://localhost:9001 (логин: minioadmin, пароль: minioadmin)
+   - PgAdmin: http://localhost:5050 (логин: admin@example.com, пароль: admin)
 
+## Хранение данных в MinIO
+
+Приложение настроено на использование MinIO в качестве основного хранилища видео и логов обработки. Это обеспечивает:
+- Масштабируемость и высокую доступность
+- Совместимость с AWS S3 API
+- Безопасное хранение данных
+
+### Просмотр данных в MinIO
+
+1. Откройте консоль MinIO: http://localhost:9001
+2. Войдите с учетными данными (minioadmin/minioadmin)
+3. Перейдите в секцию "Buckets"
+4. Вы увидите два бакета:
+   - `videos` - для хранения видеофайлов
+   - `logs` - для хранения логов обработки
+
+### Миграция с локального хранилища
+
+Если у вас есть существующие данные в локальном хранилище, вы можете мигрировать их в MinIO:
+
+```bash
+# Из корня проекта
+python -m app.utils.migrate_to_minio
+```
+
+Подробную информацию о работе с MinIO можно найти в файле [backend/README_MINIO.md](backend/README_MINIO.md).
+
+## Структура проекта
+
+- `backend/` - Код бэкенда
+  - `app/` - Код приложения
+    - `api/` - API маршруты и контроллеры
+    - `models/` - Модели для обнаружения объектов
+    - `services/` - Сервисы приложения
+      - `minio_storage.py` - Интеграция с MinIO
+      - `video_storage.py` - Абстракция для работы с хранилищем
+      - `video_processing.py` - Обработка видео и обнаружение объектов
+  - `tests/` - Тесты
+  - `utils/` - Утилиты, включая миграцию в MinIO
+- `storage/` - Директория для временного локального хранения
+- `docker-compose.yml` - Конфигурация Docker
+
+## API Endpoints
+
+- `POST /login` - Авторизация пользователя
+- `POST /register` - Регистрация нового пользователя
+- `POST /predict` - Загрузка и анализ видео
+- `GET /videos` - Получение списка видео
+- `GET /video/<filename>` - Получение видео
+- `GET /video/<filename>/url` - Получение временной ссылки на видео
+- `GET /videos/<filename>/logs` - Получение логов анализа видео
+- `DELETE /videos/<filename>` - Удаление видео и логов
+- `PUT /videos/<filename>` - Обновление информации о видео
+
+## Решение проблем
+
+### Проблемы с доступом к MinIO
+
+Если возникают проблемы с доступом к MinIO:
+
+1. Проверьте, что контейнер MinIO запущен:
    ```
-   pip install -r requirements.txt
+   docker ps | grep minio
    ```
 
-5. **Start the development server** - Run the following command (root directory) to start the development server:
-
+2. Проверьте логи MinIO:
    ```
-   npm start
+   docker logs minio
    ```
 
-   The project should now be running at `http://localhost:5173`.
+3. Проверьте, что бэкенд имеет доступ к MinIO:
+   ```
+   docker exec -it backend ping minio
+   ```
 
-## Troubleshooting
+### Ошибки при загрузке видео
 
-If you encounter any issues while setting up the project, please check the following:
+1. Проверьте, что видео имеет поддерживаемый формат (.mp4, .avi, .mov, .mkv)
+2. Проверьте, что размер видео не превышает 100 МБ
+3. Проверьте, что MinIO доступен и имеет достаточно места
 
-- Ensure that you have the correct versions of Node.js and npm installed.
-- Make sure you've run `npm install` and `pip install -r requirements.txt` in the correct directories.
-- Check the console for any error messages, which could give clues about what's going wrong.
-
-If you're still having trouble, feel free to open an issue in the repository, and I'll do my best to help you out.
+> Примечание: Если MinIO недоступен, система автоматически сохранит видео в локальном хранилище.

@@ -1,22 +1,110 @@
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "5174:5000"
-    volumes:
-      - ./backend:/app
-    environment:
-      - FLASK_ENV=development
+version: '3'
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "5173:3000"
+services:
+  # Backend сервис
+  #backend:
+  #  build:
+  #    context: ./backend
+  #    dockerfile: Dockerfile
+  #  container_name: backend
+  #  restart: always
+  #  volumes:
+  #    - ./backend:/app
+  #    - ./storage:/app/storage
+  #  environment:
+  #    - USE_MINIO=true
+  #    - MINIO_ENDPOINT=minio:9000
+  #    - MINIO_ACCESS_KEY=minioadmin
+  #    - MINIO_SECRET_KEY=minioadmin
+  #    - MINIO_SECURE=false
+  #    - MODEL_PATH=/app/app/utils/yolov8nv2_e200_bs16.pt
+  #  ports:
+  #    - "5174:5174"
+  #  command: ["python", "wsgi.py"]
+  #  networks:
+  #    - app-network
+  #  depends_on:
+  #    postgres:
+  #      condition: service_healthy
+  #    minio:
+  #      condition: service_healthy
+
+  # PostgreSQL сервис
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpassword
+      POSTGRES_DB: pgdatabase
     volumes:
-      - ./frontend:/app
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pguser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # PgAdmin сервис
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./services/pgadmin/servers.json:/pgadmin4/servers.json
+    ports:
+      - "5050:80"
     depends_on:
-      - backend
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # MinIO сервис (S3-совместимое хранилище)
+  minio:
+    image: minio/minio
+    container_name: minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"  # API порт
+      - "9001:9001"  # Веб-консоль
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  minio_data: 

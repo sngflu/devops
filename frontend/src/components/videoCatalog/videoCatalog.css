@@ -125,6 +125,21 @@
     word-wrap: break-word;
 }
 
+.log-item:hover {
+    background-color: rgba(247, 156, 114, 0.3);
+    transition: background-color 0.3s ease;
+}
+
+.video-item.active {
+    background: rgba(247, 156, 114, 0.4);
+    border: 1px solid #F79C72;
+}
+
+.log-item.active {
+    background-color: #ff8147;
+    padding-left: 8px;
+    transition: all 0.2s ease;
+}
 .video-item input {
     width: 100%;
     padding: 0.5rem;
