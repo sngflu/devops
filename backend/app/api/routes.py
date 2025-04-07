@@ -8,7 +8,7 @@ import tempfile
 import logging
 import uuid
 from datetime import datetime
-from app.services import video_processing, video_storage
+from app.services import video_processing
 from app.services.minio_storage import MinioStorage
 from app.services.database import db_manager
 
@@ -28,13 +28,10 @@ bp = Blueprint("routes", __name__, url_prefix="")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
 
+# Загружаем секретный ключ
 with open(os.path.join(CONFIG_DIR, "secret.json")) as f:
     config = json.load(f)
     SECRET_KEY = config["SECRET_KEY"]
-
-with open(os.path.join(CONFIG_DIR, "users.json")) as f:
-    user_config = json.load(f)
-    USERS = user_config["users"]
 
 # Инициализируем объект для работы с MinIO
 storage = MinioStorage()
@@ -57,11 +54,6 @@ def token_required(f):
         return f(*args, **kwargs)
 
     return decorated
-
-
-def save_users():
-    with open(os.path.join(CONFIG_DIR, "users.json"), "w") as f:
-        json.dump({"users": USERS}, f, indent=2)
 
 
 @bp.route("/register", methods=["POST"])
@@ -100,11 +92,16 @@ def login():
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
+    
+    if not username or not password:
+        return jsonify({"message": "Username and password are required"}), 400
 
     # Проверяем, существует ли пользователь в базе данных
     user = db_manager.get_user_by_username(username)
     
+    # Аутентификация через БД
     if user and check_password_hash(user["password_hash"], password):
+        logger.info(f"Пользователь {username} аутентифицирован")
         # Генерируем JWT токен с ID пользователя
         token = jwt.encode(
             {"user": username, "user_id": str(user["user_id"])},
@@ -112,14 +109,8 @@ def login():
         )
         return jsonify({"token": token})
 
-    # Для обратной совместимости проверяем локальных пользователей
-    if username in USERS and check_password_hash(USERS[username], password):
-        token = jwt.encode(
-            {"user": username},
-            SECRET_KEY,
-        )
-        return jsonify({"token": token})
-
+    # Если пользователь не найден или пароль неверный
+    logger.warning(f"Неудачная попытка входа для пользователя {username}")
     return jsonify({"message": "Invalid credentials"}), 401
 
 
@@ -179,19 +170,11 @@ def processing():
             logger.warning(f"Файл слишком большой: {file_size//(1024*1024)} МБ")
             os.remove(temp_path)
             return jsonify({"error": f"Файл слишком большой. Максимальный размер: {max_size/(1024*1024)} МБ"}), 400
-        
-        # Проверка существования директорий для хранения файлов
-        if not os.path.exists(video_storage.VIDEOS_DIR):
-            logger.info(f"Создание директории для видео: {video_storage.VIDEOS_DIR}")
-            os.makedirs(video_storage.VIDEOS_DIR, exist_ok=True)
-        if not os.path.exists(video_storage.LOGS_DIR):
-            logger.info(f"Создание директории для логов: {video_storage.LOGS_DIR}")
-            os.makedirs(video_storage.LOGS_DIR, exist_ok=True)
     
         # Обрабатываем видео
         confidence_threshold = 0.6
         logger.info(f"Начало обработки видео: {file.filename}, порог уверенности: {confidence_threshold}")
-        video_filename, frame_objects, fps = video_processing.process_video(
+        video_filename, frame_objects, fps, has_weapon_or_knife, log_filename = video_processing.process_video(
             temp_path, confidence_threshold, username
         )
         
@@ -213,59 +196,23 @@ def processing():
         }
         logger.debug(f"Метаданные видео: {metadata}")
 
-        # Сохраняем обработанное видео в MinIO
-        local_path = os.path.join(video_storage.VIDEOS_DIR, video_filename)
-        logger.debug(f"Проверка локального пути: {local_path}")
-        
-        if not os.path.exists(local_path):
-            logger.error(f"Локальный файл не найден после обработки: {local_path}")
-            return jsonify({"error": "Ошибка при обработке видео: файл не найден"}), 500
+        # Если у нас есть ID пользователя, сохраняем в базу данных
+        if user_id:
+            video_id, error = db_manager.save_video_metadata(
+                user_id, 
+                video_filename, 
+                storage.video_bucket, 
+                metadata, 
+                status='completed'
+            )
+            success, error1 = db_manager.save_detection_results(video_id,log_filename, frame_objects, has_weapon_or_knife)
             
-        if os.path.getsize(local_path) == 0:
-            logger.error(f"Обработанный файл имеет нулевой размер: {local_path}")
-            return jsonify({"error": "Ошибка при обработке видео: файл пуст"}), 500
-            
-        try:
-            logger.info(f"Сохранение видео в MinIO: {video_filename}")
-            storage.save_video(local_path, video_filename, metadata)
-            
-            # Сохраняем результаты детекции
-            if frame_objects:
-                logger.info(f"Сохранение лога детекции в MinIO: {video_filename}.json")
-                storage.save_log(frame_objects, f"{video_filename}.json")
-                
-            # Также сохраняем логи локально для обратной совместимости
-            log_path = os.path.join(video_storage.LOGS_DIR, f"{video_filename}.json")
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, "w") as f:
-                json.dump(frame_objects, f)
-                
-            # Если у нас есть ID пользователя, сохраняем в базу данных
-            if user_id:
-                # Сохраняем метаданные видео в БД
-                video_id, error = db_manager.save_video_metadata(
-                    user_id, 
-                    video_filename, 
-                    storage.video_bucket, 
-                    metadata, 
-                    status='completed'
-                )
-                
-                if error:
-                    logger.error(f"Ошибка при сохранении метаданных видео в БД: {error}")
-                else:
-                    # Сохраняем результаты обнаружения
-                    success, error = db_manager.save_detection_results(video_id, frame_objects)
-                    if not success:
-                        logger.error(f"Ошибка при сохранении результатов обнаружения в БД: {error}")
-                    
-                    # Добавляем запись в журнал действий
-                    db_manager.add_log(user_id, 'upload', video_id)
-                
-        except Exception as e:
-            logger.error(f"Ошибка при сохранении в MinIO: {str(e)}")
-            # Оставляем локальный файл на случай ошибки MinIO
-            logger.warning("Видео сохранено только локально из-за ошибки MinIO")
+            if error:
+                logger.error(f"Ошибка при сохранении метаданных видео в БД: {error}")
+            if error1:
+                logger.error(f"Ошибка при сохранении результатов обнаружения в БД: {error1}")
+            else:
+                db_manager.add_log(user_id, 'upload', video_id)
                 
         # Удаляем временный файл
         if os.path.exists(temp_path):
@@ -320,30 +267,12 @@ def serve_video(filename):
         logger.info(f"Запрошено видео: {filename}")
         video_url = storage.get_presigned_url(filename)
         if video_url:
-            logger.info(f"Получена временная ссылка из MinIO для {video_url}")
+            logger.info(f"Получена временная ссылка из MinIO для {filename}")
            
             return redirect(video_url) if request.args.get('direct') else jsonify({"url": video_url}), 200
         else:
-            logger.warning(f"Не удалось получить временную ссылку из MinIO для {filename}, проверяем локальное хранилище")
-            # Если файл не найден в MinIO, проверяем локальное хранилище
-            # (для обратной совместимости)
-            local_path = os.path.join(video_storage.VIDEOS_DIR, filename)
-            if os.path.exists(local_path):
-                logger.info(f"Файл найден в локальном хранилище: {local_path}")
-                if os.path.getsize(local_path) > 0:
-                    response = send_from_directory(
-                        video_storage.VIDEOS_DIR,
-                        filename,
-                        as_attachment=False,
-                        conditional=True,
-                    )
-                    return response
-                else:
-                    logger.error(f"Локальный файл имеет нулевой размер: {local_path}")
-                    return jsonify({"error": "Файл поврежден (нулевой размер)"}), 500
-            else:
-                logger.error(f"Видео не найдено ни в MinIO, ни в локальном хранилище: {filename}")
-                return jsonify({"error": "Video not found"}), 404
+            logger.error(f"Не удалось получить временную ссылку из MinIO для {filename}")
+            return jsonify({"error": "Video not found"}), 404
     except Exception as e:
         logger.error(f"Ошибка при получении видео: {str(e)}")
         import traceback
@@ -369,11 +298,7 @@ def get_video_url(filename):
         if video_url:
             return jsonify({"url": video_url, "expires_in": expires}), 200
         else:
-            # Если не найдено в MinIO, проверяем локальное хранилище для обратной совместимости
-            if os.path.exists(os.path.join(video_storage.VIDEOS_DIR, filename)):
-                return jsonify({"url": f"/video/{filename}"}), 200
-            else:
-                return jsonify({"error": "Video not found"}), 404
+            return jsonify({"error": "Video not found"}), 404
     except Exception as e:
         logger.error(f"Ошибка при получении URL видео: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -418,31 +343,6 @@ def get_videos():
                 if video['filename'] not in db_filenames:
                     videos.append(video)
         
-        # Если список пустой, проверяем локальное хранилище для обратной совместимости
-        if not videos and os.path.exists(video_storage.VIDEOS_DIR):
-            local_videos = []
-            for filename in os.listdir(video_storage.VIDEOS_DIR):
-                if filename.startswith(f"{username}_"):
-                    log_path = os.path.join(video_storage.LOGS_DIR, f"{filename}.json")
-                    log_count = 0
-                    
-                    if os.path.exists(log_path):
-                        with open(log_path, "r") as f:
-                            logs = json.load(f)
-                            log_count = sum(1 for log in logs if log[1] > 0 or log[2] > 0)
-
-                    original_name = "_".join(filename.split("_")[3:])
-                    local_videos.append(
-                        {
-                            "filename": filename,
-                            "original_name": original_name,
-                            "log_count": log_count,
-                        }
-                    )
-            if local_videos:
-                videos = local_videos
-                logger.info(f"Найдено {len(videos)} видео в локальном хранилище для пользователя {username}")
-        
         return jsonify(videos)
     except Exception as e:
         logger.error(f"Ошибка при получении списка видео: {str(e)}")
@@ -473,41 +373,17 @@ def get_video_logs(filename):
                 # Получаем результаты обнаружения из БД
                 detection_results = db_manager.get_video_detections(video_data['video_id'])
                 if detection_results:
-                    # Преобразуем результаты в формат, ожидаемый фронтендом
-                    logs = []
-                    detections = detection_results.get('detections', [])
-                    
-                    # Группируем обнаружения по кадрам
-                    frame_detections = {}
-                    for detect in detections:
-                        frame_num = detect['frame_number']
-                        if frame_num not in frame_detections:
-                            frame_detections[frame_num] = [detect['timestamp']]
-                        
-                        frame_detections[frame_num].append([
-                            detect['weapon_type'],
-                            detect['confidence']
-                        ])
-                    
-                    # Создаем последовательность кадров
-                    max_frame = max(frame_detections.keys()) if frame_detections else 0
-                    for i in range(max_frame + 1):
-                        if i in frame_detections:
-                            logs.append(frame_detections[i])
-                        else:
-                            logs.append([])
-                    
-                    return jsonify(logs)
+                    # Проверяем есть ли результаты в MinIO по ключу s3_key из таблицы detection_results
+                    if storage.object_exists(detection_results['bucket_name'], detection_results['s3_key']):
+                        # Получаем результаты из MinIO
+                        logs = storage.get_log_from_bucket(detection_results['bucket_name'], detection_results['s3_key'])
+                        if logs:
+                            print(logs)
+                            return jsonify(logs)
         
-        # Получаем логи из MinIO
+        # Если мы здесь, значит в БД данных нет или мы не смогли их получить
+        # Пробуем получить логи из MinIO напрямую
         logs = storage.get_log(f"{filename}.json")
-        
-        # Если логи не найдены в MinIO, проверяем локальное хранилище
-        if logs is None and os.path.exists(video_storage.LOGS_DIR):
-            log_path = os.path.join(video_storage.LOGS_DIR, f"{filename}.json")
-            if os.path.exists(log_path):
-                with open(log_path, "r") as f:
-                    logs = json.load(f)
         
         if logs is None:
             return jsonify({"error": "Logs not found"}), 404
@@ -545,25 +421,11 @@ def delete_video_route(filename):
         
         # Удаляем видео и логи из MinIO
         success = storage.delete_objects(filename, f"{filename}.json")
-        
-        # Также удаляем из локального хранилища, если файлы есть
-        # (для обратной совместимости)
-        video_path = os.path.join(video_storage.VIDEOS_DIR, filename)
-        log_path = os.path.join(video_storage.LOGS_DIR, f"{filename}.json")
-        
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        if os.path.exists(log_path):
-            os.remove(log_path)
             
-        if not success and not deleted_from_db:
-            # Если удаление из MinIO не удалось, но из локального хранилища удалили
-            if not (os.path.exists(video_path) or os.path.exists(log_path)):
-                success = True
-                
         if not success and not deleted_from_db:
             return jsonify({"error": "Failed to delete video"}), 500
-            
+        
+
         return jsonify({"message": "Successfully deleted"})
     except Exception as e:
         logger.error(f"Ошибка при удалении видео: {str(e)}")
@@ -619,17 +481,6 @@ def update_video(filename):
         
         # Также переименовываем логи, если они существуют
         storage.rename_object(storage.log_bucket, f"{filename}.json", f"{new_filename}.json")
-        
-        # Для обратной совместимости также переименовываем локальные файлы
-        video_path = os.path.join(video_storage.VIDEOS_DIR, filename)
-        new_video_path = os.path.join(video_storage.VIDEOS_DIR, new_filename)
-        log_path = os.path.join(video_storage.LOGS_DIR, f"{filename}.json")
-        new_log_path = os.path.join(video_storage.LOGS_DIR, f"{new_filename}.json")
-        
-        if os.path.exists(video_path):
-            os.rename(video_path, new_video_path)
-        if os.path.exists(log_path):
-            os.rename(log_path, new_log_path)
             
         return jsonify({"message": "Video renamed successfully", "new_filename": new_filename})
     except Exception as e:

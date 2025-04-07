@@ -225,7 +225,20 @@ class DatabaseManager:
                 
                 old_s3_key = video['s3_key']
                 
-                # Обновление ключа S3
+                # Сначала создаем запись в журнале логов внутри транзакции
+                log_details = {
+                    'old_s3_key': old_s3_key,
+                    'new_s3_key': new_s3_key
+                }
+                cursor.execute(
+                    """
+                    INSERT INTO logs (user_id, action, video_id, details)
+                    VALUES (%s, %s, %s, %s)
+                    """, 
+                    (user_id, 'rename', video_id, json.dumps(log_details))
+                )
+                
+                # Затем выполняем обновление ключа S3
                 cursor.execute(
                     """
                     UPDATE videos 
@@ -233,18 +246,6 @@ class DatabaseManager:
                     WHERE video_id = %s
                     """, 
                     (new_s3_key, video_id)
-                )
-                
-                # Логирование действия
-                cursor.execute(
-                    """
-                    INSERT INTO logs (user_id, action, video_id, details)
-                    VALUES (%s, %s, %s, %s)
-                    """, 
-                    (user_id, 'rename', video_id, json.dumps({
-                        'old_s3_key': old_s3_key,
-                        'new_s3_key': new_s3_key
-                    }))
                 )
                 
             logger.info(f"Обновлено имя видео: {old_s3_key} -> {new_s3_key}")
@@ -304,25 +305,28 @@ class DatabaseManager:
                 if not video:
                     return False, "Видео не найдено или нет доступа"
                 
-                # Удаление видео
+                # Создаем запись в журнале логов ПЕРЕД удалением видео
+                # Важно делать это внутри транзакции и перед удалением
+                log_details = {
+                    's3_key': video['s3_key'],
+                    'bucket_name': video['bucket_name']
+                }
+                # Прямое добавление записи в базу данных, чтобы гарантировать выполнение внутри той же транзакции
+                cursor.execute(
+                    """
+                    INSERT INTO logs (user_id, action, video_id, details)
+                    VALUES (%s, %s, %s, %s)
+                    """, 
+                    (user_id, 'delete', video_id, json.dumps(log_details))
+                )
+                
+                # После логирования выполняем удаление видео
                 cursor.execute(
                     """
                     DELETE FROM videos 
                     WHERE video_id = %s
                     """, 
                     (video_id,)
-                )
-                
-                # Логирование действия
-                cursor.execute(
-                    """
-                    INSERT INTO logs (user_id, action, video_id, details)
-                    VALUES (%s, %s, %s, %s)
-                    """, 
-                    (user_id, 'delete', video_id, json.dumps({
-                        's3_key': video['s3_key'],
-                        'bucket_name': video['bucket_name']
-                    }))
                 )
                 
             logger.info(f"Удалено видео: {video['s3_key']}")
@@ -333,15 +337,13 @@ class DatabaseManager:
             return False, f"Ошибка при удалении видео: {e}"
     
     # Методы для работы с результатами обнаружения
-    def save_detection_results(self, video_id, frame_objects, summary=None):
+    def save_detection_results(self, video_id, log_filename, frame_objects, weapon_detected, summary=None):
         """Сохранение результатов обнаружения оружия"""
         conn = self.get_connection()
         if not conn:
             return False, "Ошибка подключения к БД"
         
-        # Определение наличия обнаружений
-        weapon_detected = any(len(frame) > 0 for frame in frame_objects)
-        
+
         if summary is None:
             summary = {
                 'total_frames': len(frame_objects),
@@ -350,32 +352,32 @@ class DatabaseManager:
         
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                # Сначала получим информацию о видео и пользователе
+                cur.execute("""
+                SELECT user_id, s3_key, bucket_name FROM videos
+                WHERE video_id = %s
+                """, (video_id,))
+                
+                video_data = cur.fetchone()
+                if not video_data:
+                    return False, f"Видео с ID {video_id} не найдено"
+                
+                user_id = video_data['user_id']
+                
+                # Создаем имя файла результатов, используя тот же формат, что и для видео
+                # но добавляем префикс 'detection_' к ключу S3
+    
+                detection_bucket_name = "logs" # Используем отдельный бакет для результатов
+                
                 # Создание записи о результатах обнаружения
                 cur.execute("""
                 INSERT INTO detection_results 
-                (video_id, weapon_detected, summary)
-                VALUES (%s, %s, %s)
+                (video_id, user_id, s3_key, bucket_name, status, weapon_detected)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING result_id
-                """, (video_id, weapon_detected, json.dumps(summary)))
+                """, (video_id, user_id, log_filename, detection_bucket_name, 'completed', weapon_detected))
                 
                 result = cur.fetchone()
-                result_id = result['result_id']
-                
-                # Сохранение отдельных обнаружений
-                for i, frame in enumerate(frame_objects):
-                    if len(frame) > 0:
-                        timestamp = frame[0] if len(frame) > 0 else None
-                        
-                        for detection in frame[1:]:
-                            if isinstance(detection, list) and len(detection) >= 2:
-                                weapon_type = detection[0]
-                                confidence = detection[1]
-                                
-                                cur.execute("""
-                                INSERT INTO detections 
-                                (result_id, frame_number, timestamp, weapon_type, confidence)
-                                VALUES (%s, %s, %s, %s, %s)
-                                """, (result_id, i, timestamp, weapon_type, confidence))
                 
                 # Обновление статуса видео
                 cur.execute("""
@@ -404,25 +406,16 @@ class DatabaseManager:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Получение общей информации о результатах
                 cur.execute("""
-                SELECT * FROM detection_results
-                WHERE video_id = %s
+                SELECT dr.*, v.s3_key as video_s3_key, v.bucket_name as video_bucket_name
+                FROM detection_results dr
+                JOIN videos v ON dr.video_id = v.video_id
+                WHERE dr.video_id = %s
                 """, (video_id,))
                 
                 results = cur.fetchone()
                 if not results:
                     return None
-                    
-                # Получение отдельных обнаружений
-                cur.execute("""
-                SELECT * FROM detections
-                WHERE result_id = %s
-                ORDER BY frame_number
-                """, (results['result_id'],))
                 
-                detections = cur.fetchall()
-                
-                # Формирование структуры данных для ответа
-                results['detections'] = detections
                 return results
         except Exception as e:
             logger.error(f"Ошибка при получении результатов обнаружения: {e}")
@@ -431,18 +424,39 @@ class DatabaseManager:
             conn.close()
     
     # Методы для логирования
-    def add_log(self, user_id, action, video_id=None):
-        """Добавление записи в журнал действий"""
-        _, error = self.execute_query(
+    def add_log(self, user_id, action, video_id=None, details=None):
+        """
+        Добавление записи в журнал действий
+        
+        :param user_id: ID пользователя
+        :param action: Тип действия (строка)
+        :param video_id: ID видео (опционально)
+        :param details: Дополнительная информация в формате JSON (опционально)
+        :return: True при успешном добавлении, False в случае ошибки
+        """
+        if details:
+            # Если details - это словарь, преобразуем его в JSON строку
+            if isinstance(details, dict):
+                details = json.dumps(details)
+            
+            # SQL для случая с details
+            query = """
+            INSERT INTO logs (user_id, action, video_id, details)
+            VALUES (%s, %s, %s, %s)
             """
+            params = (user_id, action, video_id, details)
+        else:
+            # SQL для случая без details
+            query = """
             INSERT INTO logs (user_id, action, video_id)
             VALUES (%s, %s, %s)
-            """,
-            (user_id, action, video_id),
-            fetch=None
-        )
+            """
+            params = (user_id, action, video_id)
+            
+        _, error = self.execute_query(query, params, fetch=None)
         
         if error:
+            logger.error(f"Ошибка добавления записи в журнал: {error}")
             return False
         
         logger.info(f"Добавлена запись в журнал: {action}")

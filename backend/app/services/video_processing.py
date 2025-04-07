@@ -5,9 +5,9 @@ import os
 import shutil
 import logging
 from app.models import model
-from app.services import video_storage
 from app.services.minio_storage import MinioStorage
 import json
+import tempfile
 
 
 # Настройка логирования
@@ -70,20 +70,23 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         frame_objects = []
         total_weapons = 0
         total_knives = 0
+        has_weapon_or_knife = False
         
         for i, frame_results in enumerate(results):
             boxes = frame_results.boxes
-            num_weapons = 0
-            num_knives = 0
+            has_weapon = False
+            has_knife = False
             for box in boxes:
                 cls = int(box.cls[0])
                 if frame_results.names[cls] == "weapon":
-                    num_weapons += 1
+                    has_weapon = True
                     total_weapons += 1
+                    has_weapon_or_knife = True
                 elif frame_results.names[cls] == "knife":
-                    num_knives += 1
+                    has_knife = True
                     total_knives += 1
-            frame_objects.append((i, num_weapons, num_knives))
+                    has_weapon_or_knife = True
+            frame_objects.append((i, has_weapon, has_knife))
 
         logger.info(f"Обнаружено объектов: {total_weapons} оружия, {total_knives} ножей")
 
@@ -92,9 +95,9 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         new_filename = f"{username}_{timestamp}_{base_filename}.mp4"
         logger.debug(f"Новое имя файла: {new_filename}")
         
-        # Всегда сохраняем в локальное хранилище временно
-        os.makedirs(video_storage.VIDEOS_DIR, exist_ok=True)
-        final_video_path = os.path.join(video_storage.VIDEOS_DIR, new_filename)
+        # Используем временную директорию для файла
+        temp_dir = tempfile.gettempdir()
+        final_video_path = os.path.join(temp_dir, new_filename)
         logger.debug(f"Путь к временному файлу: {final_video_path}")
 
         # Проверяем, создала ли модель MP4 файл
@@ -155,10 +158,18 @@ def process_video(filename, confidence_threshold=0.25, username=None):
             "processed_date": datetime.now().isoformat()
         }
 
-        # Загружать видео в MinIO будем в маршруте /predict, здесь только подготавливаем файл
-        logger.info(f"Видео подготовлено: {new_filename}")
+        # Загружаем видео в MinIO
+        logger.info(f"Загрузка видео в MinIO: {new_filename}")
+        storage.save_video(final_video_path, new_filename, metadata)
+        
+        # Сохраняем результаты детекции в MinIO
+        # frame_objects содержит кортежи (номер_кадра, наличие_оружия, наличие_ножа)
+        # где наличие_оружия и наличие_ножа - булевы значения
+        log_filename = f"{new_filename}.json"
+        logger.info(f"Сохранение лога детекции в MinIO: {log_filename}")
+        storage.save_log(frame_objects, log_filename)
 
-        # Очистка временных файлов модели, не трогаем финальный файл
+        # Очистка временных файлов модели
         logger.debug("Очистка временных файлов")
         if os.path.exists(processed_mp4):
             os.remove(processed_mp4)
@@ -167,9 +178,14 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         if os.path.exists("runs"):
             shutil.rmtree("runs")
             logger.debug("Директория 'runs' удалена")
+        
+        # Удаление временного файла
+        if os.path.exists(final_video_path):
+            os.remove(final_video_path)
+            logger.debug(f"Временный файл удален: {final_video_path}")
 
         logger.info(f"Обработка видео успешно завершена: {new_filename}")
-        return new_filename, frame_objects, fps
+        return new_filename, frame_objects, fps, has_weapon_or_knife, log_filename
     
     except Exception as e:
         logger.error(f"Ошибка при обработке видео: {str(e)}")

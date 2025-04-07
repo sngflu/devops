@@ -2,13 +2,11 @@ from flask import Flask
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-from app.services import video_storage
-from app.api import routes
+
 
 # Загрузка переменных окружения из .env файла
 load_dotenv()
-# Инициализация хранилища
-video_storage.init_storage()
+
 
 def create_app(test_config=None):
     """
@@ -30,9 +28,6 @@ def create_app(test_config=None):
         # Загрузка тестовой конфигурации
         app.config.from_mapping(test_config)
     
-    # Инициализация хранилища
-    from app.services import video_storage
-    video_storage.init_storage()
     
     # Регистрация маршрутов
     from app.api import routes

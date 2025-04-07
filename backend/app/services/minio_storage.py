@@ -1,5 +1,6 @@
 from minio import Minio
 from minio.error import S3Error
+from minio.commonconfig import CopySource
 import os
 import json
 import logging
@@ -110,6 +111,15 @@ class MinioStorage:
                 logger.info(f"Создан бакет {self.log_bucket}")
             else:
                 logger.debug(f"Бакет {self.log_bucket} уже существует")
+                
+            # Создаем бакет для результатов детекции
+            detections_bucket = "detections"
+            if not self.client.bucket_exists(detections_bucket):
+                logger.info(f"Бакет {detections_bucket} не существует, создаем")
+                self.client.make_bucket(detections_bucket)
+                logger.info(f"Создан бакет {detections_bucket}")
+            else:
+                logger.debug(f"Бакет {detections_bucket} уже существует")
         except Exception as e:
             logger.error(f"Ошибка при проверке/создании бакетов: {e}")
             raise
@@ -190,23 +200,28 @@ class MinioStorage:
     def rename_object(self, source_bucket, source_object, target_object):
         """Переименование объекта через операцию копирования"""
         logger.info(f"Переименование объекта {source_object} в {target_object} в бакете {source_bucket}")
-        self.ensure_connection()
-        
-        # Создаем копию с новым именем
-        self.client.copy_object(
-            bucket_name=source_bucket,
-            object_name=target_object,
-            source_object=f"{source_bucket}/{source_object}"
-        )
-        
-        # Удаляем оригинал
-        self.client.remove_object(
-            bucket_name=source_bucket,
-            object_name=source_object
-        )
-        
-        logger.info(f"Объект {source_object} переименован в {target_object}")
-        return True
+        try:
+            self.ensure_connection()
+            
+            # Создаем копию с новым именем используя CopySource
+            copy_source = CopySource(source_bucket, source_object)
+            result = self.client.copy_object(
+                bucket_name=source_bucket,
+                object_name=target_object,
+                source=copy_source
+            )
+            
+            # Удаляем оригинал
+            self.client.remove_object(
+                bucket_name=source_bucket,
+                object_name=source_object
+            )
+            
+            logger.info(f"Объект {source_object} переименован в {target_object}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при переименовании объекта: {e}")
+            return False
     
     @retry_s3_operation()
     def get_video(self, object_name, file_path):
@@ -270,6 +285,68 @@ class MinioStorage:
             logger.error(f"Ошибка получения лога из Minio: {e}")
             return None
             
+    @retry_s3_operation()
+    def object_exists(self, bucket_name, object_name):
+        """Проверка существования объекта в Minio
+        
+        Args:
+            bucket_name (str): Имя бакета в Minio
+            object_name (str): Имя объекта в Minio
+            
+        Returns:
+            bool: True - объект существует, False - объект не существует или ошибка
+        """
+        logger.info(f"Проверка существования объекта {object_name} в бакете {bucket_name}")
+        try:
+            self.ensure_connection()
+            
+            # Проверяем существование объекта, получая его статистику
+            self.client.stat_object(bucket_name, object_name)
+            logger.info(f"Объект {object_name} существует в бакете {bucket_name}")
+            return True
+        except S3Error as e:
+            if e.code == 'NoSuchKey':
+                logger.info(f"Объект {object_name} не существует в бакете {bucket_name}")
+                return False
+            logger.error(f"Ошибка при проверке существования объекта: {e}")
+            return False
+            
+    @retry_s3_operation()
+    def get_log_from_bucket(self, bucket_name, object_name):
+        """Получение JSON лога из указанного бакета Minio
+        
+        Args:
+            bucket_name (str): Имя бакета в Minio
+            object_name (str): Имя объекта в Minio
+            
+        Returns:
+            dict or None: JSON данные или None в случае ошибки
+        """
+        logger.info(f"Получение лога {object_name} из бакета {bucket_name}")
+        try:
+            self.ensure_connection()
+                
+            # Получаем объект из Minio
+            response = self.client.get_object(
+                bucket_name=bucket_name,
+                object_name=object_name
+            )
+            
+            # Читаем данные и конвертируем из JSON
+            data = response.read().decode('utf-8')
+            json_data = json.loads(data)
+            
+            response.close()
+            response.release_conn()
+            
+            logger.info(f"Лог {object_name} успешно получен из бакета {bucket_name}")
+            logger.debug(f"Размер полученных данных: {len(data)} байт")
+            return json_data
+        except S3Error as e:
+            logger.error(f"Ошибка получения лога из Minio: {e}")
+            return None
+            
+   
     @retry_s3_operation()
     def delete_objects(self, video_object_name, log_object_name=None):
         """Удаление видео и лога из Minio
@@ -409,79 +486,3 @@ class MinioStorage:
         except S3Error as e:
             logger.error(f"Ошибка получения списка видео: {e}")
             return []
-
-
-# Глобальные переменные и функции для обратной совместимости
-# Параметры для подключения к Minio
-MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT', 'minio:9000')
-MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY', 'minioadmin')
-MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY', 'minioadmin')
-MINIO_SECURE = os.environ.get('MINIO_SECURE', 'false').lower() == 'true'
-
-
-VIDEO_BUCKET = 'videos'
-LOG_BUCKET = 'logs'
-
-# Клиент Minio и объект хранилища
-minio_client = None
-_storage = None
-
-def get_storage():
-    """Получение глобального объекта MinioStorage"""
-    global _storage
-    if _storage is None:
-        logger.info("Инициализация глобального объекта MinioStorage")
-        _storage = MinioStorage(
-            endpoint=MINIO_ENDPOINT,
-            access_key=MINIO_ACCESS_KEY,
-            secret_key=MINIO_SECRET_KEY,
-            secure=MINIO_SECURE,
-            video_bucket=VIDEO_BUCKET,
-            log_bucket=LOG_BUCKET
-        )
-    return _storage
-
-def init_minio_client():
-    """Инициализация клиента Minio (для обратной совместимости)"""
-    global minio_client
-    logger.info("Инициализация глобального клиента Minio для обратной совместимости")
-    storage = get_storage()
-    result = storage.connect()
-    minio_client = storage.client
-    logger.info(f"Результат инициализации клиента Minio: {'успешно' if result else 'неудачно'}")
-    return result
-
-def save_video_to_minio(file_path, object_name):
-    """Сохранение видео файла в Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости save_video_to_minio: {file_path}, {object_name}")
-    return get_storage().save_video(file_path, object_name)
-
-def save_log_to_minio(log_data, object_name):
-    """Сохранение JSON лога в Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости save_log_to_minio: {object_name}")
-    return get_storage().save_log(log_data, object_name)
-
-def get_video_from_minio(object_name, file_path):
-    """Получение видео файла из Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости get_video_from_minio: {object_name}, {file_path}")
-    return get_storage().get_video(object_name, file_path)
-
-def get_log_from_minio(object_name):
-    """Получение JSON лога из Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости get_log_from_minio: {object_name}")
-    return get_storage().get_log(object_name)
-
-def delete_from_minio(video_object_name, log_object_name=None):
-    """Удаление видео и лога из Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости delete_from_minio: {video_object_name}, {log_object_name}")
-    return get_storage().delete_objects(video_object_name, log_object_name)
-
-def get_presigned_url(object_name, expires=3600):
-    """Создание временной ссылки на видео в Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости get_presigned_url: {object_name}, {expires}")
-    return get_storage().get_presigned_url(object_name, expires)
-
-def list_user_videos(username):
-    """Получение списка видео пользователя из Minio (для обратной совместимости)"""
-    logger.info(f"Вызов функции обратной совместимости list_user_videos: {username}")
-    return get_storage().list_user_videos(username) 
