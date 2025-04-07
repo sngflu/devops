@@ -54,7 +54,6 @@ const ResultPage = () => {
     const handleFrameSeek = (frameNumber) => {
         setCurrentFrame(frameNumber);
         if (playerRef.current) {
-            // Предполагаем 30 FPS
             const seekTo = frameNumber / 30;
             playerRef.current.seekTo(seekTo, 'seconds');
         }
