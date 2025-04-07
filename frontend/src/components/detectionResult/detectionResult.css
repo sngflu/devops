@@ -18,3 +18,9 @@
 .log-item:hover {
     cursor: pointer;
 }
+
+.log-item.active {
+    background-color: #ff8147;
+    padding-left: 8px;
+    transition: all 0.2s ease;
+}

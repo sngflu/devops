@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ReactPlayer from 'react-player';
-import axiosInstance from '../../utils/axios';
 import DetectionResults from '../detectionResult/detectionResults';
 import './resultPage.css';
 
 const ResultPage = () => {
     const { state } = useLocation();
     const [videoUrl, setVideoUrl] = useState('');
+    const [currentFrame, setCurrentFrame] = useState(null);
+    const playerRef = useRef(null);
     const token = localStorage.getItem('token');
 
     useEffect(() => {
@@ -22,8 +23,6 @@ const ResultPage = () => {
                 if (response.ok) {
                     const data = await response.json();
                     setVideoUrl(data.url);
-                } else {
-                    console.error('Failed to fetch video:', response.status);
                 }
             } catch (error) {
                 console.error('Error fetching video:', error);
@@ -37,9 +36,6 @@ const ResultPage = () => {
         if (videoUrl) {
             try {
                 const response = await fetch(videoUrl);
-                if (!response.ok) {
-                    throw new Error(`Ошибка при загрузке файла: ${response.statusText}`);
-                }
                 const blob = await response.blob();
                 const downloadUrl = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -50,24 +46,33 @@ const ResultPage = () => {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(downloadUrl);
             } catch (error) {
-                console.error('Ошибка при скачивании файла:', error);
+                console.error('Download error:', error);
             }
         }
     };
 
-    // В компоненте ResultPage измените разметку на:
+    const handleFrameSeek = (frameNumber) => {
+        setCurrentFrame(frameNumber);
+        if (playerRef.current) {
+            // Предполагаем 30 FPS
+            const seekTo = frameNumber / 30;
+            playerRef.current.seekTo(seekTo, 'seconds');
+        }
+    };
+
     return (
         <div className="content-result">
             <div className="main-container">
-                <div></div> {/* Левая пустая секция */}
+                <div></div>
 
                 <div className="player-section">
                     <div className="player-wrapper">
                         {videoUrl && (
                             <ReactPlayer
+                                ref={playerRef}
                                 url={videoUrl}
                                 controls
-                                playing
+                                playing={false}
                                 config={{
                                     file: {
                                         attributes: {
@@ -90,7 +95,11 @@ const ResultPage = () => {
                 <div className="detection-container">
                     <h2>Detection Log</h2>
                     <div className="detection-results">
-                        <DetectionResults frameObjects={state.frame_objects} />
+                        <DetectionResults
+                            frameObjects={state.frame_objects}
+                            onFrameClick={handleFrameSeek}
+                            currentFrame={currentFrame}
+                        />
                     </div>
                 </div>
             </div>

@@ -11,5 +11,5 @@ storage/
 
 # Игнорировать файлы Cursor
 .cursor/
-
+node_modules/
 
