@@ -8,3 +8,8 @@ storage/
 
 *.log
 *.pid
+
+# Игнорировать файлы Cursor
+.cursor/
+
+
