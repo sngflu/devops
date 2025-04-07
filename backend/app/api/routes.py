@@ -8,9 +8,9 @@ import tempfile
 import logging
 import uuid
 from datetime import datetime
-from app.services import video_processing
-from app.services.minio_storage import MinioStorage
-from app.services.database import db_manager
+from app.services.video_processing import video_processing
+from app.services.minio import MinioStorage
+from app.services.database import DatabaseManager
 
 
 # Настройка логирования
@@ -36,6 +36,7 @@ with open(os.path.join(CONFIG_DIR, "secret.json")) as f:
 # Инициализируем объект для работы с MinIO
 storage = MinioStorage()
 
+db_manager = DatabaseManager()
 # Инициализация базы данных
 db_manager.init_database()
 

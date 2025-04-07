@@ -5,8 +5,7 @@ import os
 import shutil
 import logging
 from app.models import model
-from app.services.minio_storage import MinioStorage
-import json
+from app.services.minio import MinioStorage
 import tempfile
 
 
@@ -193,22 +192,3 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         logger.error(traceback.format_exc())
         raise
 
-
-def delete_folder_contents(folder_path):
-    logger.info(f"Очистка содержимого папки: {folder_path}")
-    try:
-        for filename in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, filename)
-            try:
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
-                    logger.debug(f"Файл удален: {file_path}")
-                elif os.path.isdir(file_path):
-                    delete_folder_contents(file_path)
-                    os.rmdir(file_path)
-                    logger.debug(f"Директория удалена: {file_path}")
-            except Exception as e:
-                logger.error(f"Ошибка при удалении {file_path}: {e}")
-        logger.info(f"Очистка папки {folder_path} завершена")
-    except Exception as e:
-        logger.error(f"Ошибка при очистке папки {folder_path}: {e}")

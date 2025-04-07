@@ -4,7 +4,7 @@ import json
 import tempfile
 from unittest.mock import patch, MagicMock
 from app import create_app
-from app.services.minio_storage import MinioStorage
+from backend.app.services.minio.minio_storage import MinioStorage
 
 @pytest.fixture
 def app():

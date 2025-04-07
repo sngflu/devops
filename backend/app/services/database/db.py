@@ -481,11 +481,11 @@ class DatabaseManager:
         return result or []
 
 
-# Создание глобального экземпляра для обратной совместимости
+'''
 db_manager = DatabaseManager()
 
 
-'''
+
 # Для обратной совместимости со старым кодом
 def get_connection():
     return db_manager.get_connection()

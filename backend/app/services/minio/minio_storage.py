@@ -112,14 +112,6 @@ class MinioStorage:
             else:
                 logger.debug(f"Бакет {self.log_bucket} уже существует")
                 
-            # Создаем бакет для результатов детекции
-            detections_bucket = "detections"
-            if not self.client.bucket_exists(detections_bucket):
-                logger.info(f"Бакет {detections_bucket} не существует, создаем")
-                self.client.make_bucket(detections_bucket)
-                logger.info(f"Создан бакет {detections_bucket}")
-            else:
-                logger.debug(f"Бакет {detections_bucket} уже существует")
         except Exception as e:
             logger.error(f"Ошибка при проверке/создании бакетов: {e}")
             raise
