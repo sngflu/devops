@@ -82,7 +82,6 @@ class MinioStorage:
                 region=self.region
             )
             
-            # Создаем бакеты, если они не существуют
             self._ensure_buckets_exist()
             
             logger.info("Соединение с MinIO установлено успешно")
@@ -120,7 +119,6 @@ class MinioStorage:
         """Проверка работоспособности соединения"""
         logger.debug("Проверка работоспособности соединения с MinIO")
         try:
-            # Проверяем, можем ли мы получить список бакетов
             buckets = self.client.list_buckets()
             logger.debug(f"Соединение работает, доступные бакеты: {', '.join([b.name for b in buckets])}")
             return True
@@ -143,46 +141,46 @@ class MinioStorage:
     def save_video(self, file_path, object_name, metadata=None):
         """Сохранение видео файла в Minio с поддержкой метаданных"""
         logger.info(f"Загрузка видео файла {file_path} в MinIO с именем {object_name}")
-        self.ensure_connection()
-        
-        # Определяем content-type для видео
-        content_type = 'video/mp4'
-        
-        # Загружаем файл в Minio
-        file_size = os.path.getsize(file_path)
-        logger.debug(f"Размер загружаемого файла: {file_size} байт")
-        
-        self.client.fput_object(
-            bucket_name=self.video_bucket,
-            object_name=object_name,
-            file_path=file_path,
-            content_type=content_type,
-            metadata=metadata
-        )
-        
-        logger.info(f"Файл {object_name} успешно загружен в Minio")
-        return True
+        try:
+            self.ensure_connection()
+            
+            content_type = 'video/mp4'
+            
+            file_size = os.path.getsize(file_path)
+            logger.debug(f"Размер загружаемого файла: {file_size} байт")
+            
+            self.client.fput_object(
+                bucket_name=self.video_bucket,
+                object_name=object_name,
+                file_path=file_path,
+                content_type=content_type,
+                metadata=metadata
+            )
+            
+            logger.info(f"Файл {object_name} успешно загружен в Minio")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при сохранении видео: {e}")
+            return False
     
     @retry_s3_operation()
-    def save_log(self, log_data, object_name):
+    def save_log(self, log_data, object_name, metadata=None):
         """Сохранение JSON лога в Minio"""
         logger.info(f"Сохранение лога в MinIO с именем {object_name}")
         self.ensure_connection()
         
-        # Конвертируем dict в JSON строку
         json_data = json.dumps(log_data).encode('utf-8')
         logger.debug(f"Размер JSON данных: {len(json_data)} байт")
         
-        # Создаем BytesIO объект, который имеет метод read()
         bytes_io = io.BytesIO(json_data)
         
-        # Загружаем JSON в Minio
         self.client.put_object(
             bucket_name=self.log_bucket,
             object_name=object_name,
             data=bytes_io,
             length=len(json_data),
-            content_type='application/json'
+            content_type='application/json',
+            metadata=metadata
         )
         
         logger.info(f"Лог {object_name} успешно загружен в Minio")
@@ -195,15 +193,13 @@ class MinioStorage:
         try:
             self.ensure_connection()
             
-            # Создаем копию с новым именем используя CopySource
-            copy_source = CopySource(source_bucket, source_object)
-            result = self.client.copy_object(
+            self.client.copy_object(
                 bucket_name=source_bucket,
                 object_name=target_object,
-                source=copy_source
+                source_bucket_name=source_bucket,
+                source_object_name=source_object
             )
             
-            # Удаляем оригинал
             self.client.remove_object(
                 bucket_name=source_bucket,
                 object_name=source_object
@@ -230,7 +226,6 @@ class MinioStorage:
         try:
             self.ensure_connection()
                 
-            # Загружаем файл из Minio
             self.client.fget_object(
                 bucket_name=self.video_bucket,
                 object_name=object_name,
@@ -245,36 +240,23 @@ class MinioStorage:
             
     @retry_s3_operation()
     def get_log(self, object_name):
-        """Получение JSON лога из Minio
-        
-        Args:
-            object_name (str): Имя объекта в Minio
-            
-        Returns:
-            dict or None: JSON данные или None в случае ошибки
-        """
+        """Получение JSON лога из Minio"""
         logger.info(f"Получение лога {object_name} из MinIO")
         try:
             self.ensure_connection()
-                
-            # Получаем объект из Minio
+            
             response = self.client.get_object(
                 bucket_name=self.log_bucket,
                 object_name=object_name
             )
             
-            # Читаем данные и конвертируем из JSON
-            data = response.read().decode('utf-8')
-            json_data = json.loads(data)
+            data = response.read()
+            log_data = json.loads(data.decode('utf-8'))
             
-            response.close()
-            response.release_conn()
-            
-            logger.info(f"Лог {object_name} успешно получен из MinIO")
-            logger.debug(f"Размер полученных данных: {len(data)} байт")
-            return json_data
-        except S3Error as e:
-            logger.error(f"Ошибка получения лога из Minio: {e}")
+            logger.info(f"Лог {object_name} успешно получен из Minio")
+            return log_data
+        except Exception as e:
+            logger.error(f"Ошибка при получении лога: {e}")
             return None
             
     @retry_s3_operation()
@@ -292,7 +274,6 @@ class MinioStorage:
         try:
             self.ensure_connection()
             
-            # Проверяем существование объекта, получая его статистику
             self.client.stat_object(bucket_name, object_name)
             logger.info(f"Объект {object_name} существует в бакете {bucket_name}")
             return True
@@ -318,13 +299,11 @@ class MinioStorage:
         try:
             self.ensure_connection()
                 
-            # Получаем объект из Minio
             response = self.client.get_object(
                 bucket_name=bucket_name,
                 object_name=object_name
             )
             
-            # Читаем данные и конвертируем из JSON
             data = response.read().decode('utf-8')
             json_data = json.loads(data)
             
@@ -354,14 +333,12 @@ class MinioStorage:
         try:
             self.ensure_connection()
                 
-            # Удаляем видео
             self.client.remove_object(
                 bucket_name=self.video_bucket,
                 object_name=video_object_name
             )
             logger.info(f"Видео {video_object_name} успешно удалено")
             
-            # Удаляем лог, если он указан
             if log_object_name:
                 self.client.remove_object(
                     bucket_name=self.log_bucket,
@@ -389,7 +366,6 @@ class MinioStorage:
         try:
             self.ensure_connection()
 
-            # Проверяем, существует ли объект
             try:
                 self.client.stat_object(
                     bucket_name=self.video_bucket,
@@ -399,7 +375,6 @@ class MinioStorage:
                 logger.warning(f"Объект {object_name} не найден в бакете {self.video_bucket}: {e}")
                 return None
             
-            # Генерируем временную ссылку
             url = self.client.presigned_get_object(
                 bucket_name=self.video_bucket,
                 object_name=object_name,
@@ -430,7 +405,6 @@ class MinioStorage:
         try:
             self.ensure_connection()
                 
-            # Получаем список объектов, имя которых начинается с username_
             objects = self.client.list_objects(
                 bucket_name=self.video_bucket,
                 prefix=f"{username}_"
@@ -438,7 +412,6 @@ class MinioStorage:
             
             videos = []
             for obj in objects:
-                # Для каждого видео проверяем наличие лога
                 filename = obj.object_name
                 log_exists = False
                 log_count = 0
@@ -451,11 +424,9 @@ class MinioStorage:
                 except Exception as e:
                     logger.warning(f"Ошибка при проверке лога для {filename}: {e}")
                 
-                # Получаем оригинальное имя файла из имени объекта
                 parts = filename.split("_")
                 original_name = "_".join(parts[3:]) if len(parts) > 3 else filename
                 
-                # Добавляем информацию о видео в список
                 video_stat = self.client.stat_object(
                     bucket_name=self.video_bucket,
                     object_name=filename
@@ -471,7 +442,6 @@ class MinioStorage:
                     "last_modified": video_stat.last_modified.strftime("%Y-%m-%d %H:%M:%S")
                 })
             
-            # Сортируем по времени создания (последние в начале)
             result = sorted(videos, key=lambda x: x["timestamp"], reverse=True)
             logger.info(f"Найдено {len(result)} видео для пользователя {username}")
             return result

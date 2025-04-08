@@ -6,10 +6,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, register_uuid
 from contextlib import contextmanager
 
-# Регистрация UUID типа данных
 register_uuid()
 
-# Настройка логирования
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -125,7 +123,7 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    # Методы для работы с пользователями
+    
     def get_user_by_username(self, username):
         """Получение пользователя по имени пользователя"""
         result, error = self.execute_query(
@@ -158,7 +156,6 @@ class DatabaseManager:
         logger.info(f"Создан новый пользователь: {username}")
         return result['user_id'], None
     
-    # Методы для работы с видео
     def save_video_metadata(self, user_id, s3_key, bucket_name, metadata=None, status='pending'):
         """Сохранение метаданных видео в базе данных"""
         if metadata is None:
@@ -210,7 +207,6 @@ class DatabaseManager:
         """
         try:
             with self.transaction() as cursor:
-                # Проверка принадлежности видео пользователю
                 cursor.execute(
                     """
                     SELECT s3_key FROM videos 
@@ -225,7 +221,6 @@ class DatabaseManager:
                 
                 old_s3_key = video['s3_key']
                 
-                # Сначала создаем запись в журнале логов внутри транзакции
                 log_details = {
                     'old_s3_key': old_s3_key,
                     'new_s3_key': new_s3_key
@@ -238,7 +233,6 @@ class DatabaseManager:
                     (user_id, 'rename', video_id, json.dumps(log_details))
                 )
                 
-                # Затем выполняем обновление ключа S3
                 cursor.execute(
                     """
                     UPDATE videos 
@@ -292,7 +286,6 @@ class DatabaseManager:
         """Удаление видео из базы данных"""
         try:
             with self.transaction() as cursor:
-                # Проверка принадлежности видео пользователю
                 cursor.execute(
                     """
                     SELECT s3_key, bucket_name FROM videos 
@@ -305,13 +298,10 @@ class DatabaseManager:
                 if not video:
                     return False, "Видео не найдено или нет доступа"
                 
-                # Создаем запись в журнале логов ПЕРЕД удалением видео
-                # Важно делать это внутри транзакции и перед удалением
                 log_details = {
                     's3_key': video['s3_key'],
                     'bucket_name': video['bucket_name']
                 }
-                # Прямое добавление записи в базу данных, чтобы гарантировать выполнение внутри той же транзакции
                 cursor.execute(
                     """
                     INSERT INTO logs (user_id, action, video_id, details)
@@ -336,7 +326,6 @@ class DatabaseManager:
             logger.error(f"Ошибка при удалении видео: {e}")
             return False, f"Ошибка при удалении видео: {e}"
     
-    # Методы для работы с результатами обнаружения
     def save_detection_results(self, video_id, log_filename, frame_objects, weapon_detected, summary=None):
         """Сохранение результатов обнаружения оружия"""
         conn = self.get_connection()
@@ -352,7 +341,6 @@ class DatabaseManager:
         
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Сначала получим информацию о видео и пользователе
                 cur.execute("""
                 SELECT user_id, s3_key, bucket_name FROM videos
                 WHERE video_id = %s
@@ -364,12 +352,10 @@ class DatabaseManager:
                 
                 user_id = video_data['user_id']
                 
-                # Создаем имя файла результатов, используя тот же формат, что и для видео
-                # но добавляем префикс 'detection_' к ключу S3
-    
-                detection_bucket_name = "logs" # Используем отдельный бакет для результатов
                 
-                # Создание записи о результатах обнаружения
+                detection_bucket_name = "logs" 
+                
+                
                 cur.execute("""
                 INSERT INTO detection_results 
                 (video_id, user_id, s3_key, bucket_name, status, weapon_detected)
@@ -379,7 +365,6 @@ class DatabaseManager:
                 
                 result = cur.fetchone()
                 
-                # Обновление статуса видео
                 cur.execute("""
                 UPDATE videos 
                 SET status = 'completed'
@@ -404,7 +389,6 @@ class DatabaseManager:
         
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Получение общей информации о результатах
                 cur.execute("""
                 SELECT dr.*, v.s3_key as video_s3_key, v.bucket_name as video_bucket_name
                 FROM detection_results dr
@@ -423,7 +407,6 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    # Методы для логирования
     def add_log(self, user_id, action, video_id=None, details=None):
         """
         Добавление записи в журнал действий
@@ -435,18 +418,15 @@ class DatabaseManager:
         :return: True при успешном добавлении, False в случае ошибки
         """
         if details:
-            # Если details - это словарь, преобразуем его в JSON строку
             if isinstance(details, dict):
                 details = json.dumps(details)
             
-            # SQL для случая с details
             query = """
             INSERT INTO logs (user_id, action, video_id, details)
             VALUES (%s, %s, %s, %s)
             """
             params = (user_id, action, video_id, details)
         else:
-            # SQL для случая без details
             query = """
             INSERT INTO logs (user_id, action, video_id)
             VALUES (%s, %s, %s)
@@ -479,52 +459,3 @@ class DatabaseManager:
         )
         
         return result or []
-
-
-'''
-db_manager = DatabaseManager()
-
-
-
-# Для обратной совместимости со старым кодом
-def get_connection():
-    return db_manager.get_connection()
-
-def init_database():
-    return db_manager.init_database()
-
-def get_user_by_username(username):
-    return db_manager.get_user_by_username(username)
-
-def create_user(username, password_hash, role='user'):
-    return db_manager.create_user(username, password_hash, role)
-
-def save_video_metadata(user_id, s3_key, bucket_name, metadata=None, status='pending'):
-    return db_manager.save_video_metadata(user_id, s3_key, bucket_name, metadata, status)
-
-def update_video_status(video_id, status):
-    return db_manager.update_video_status(video_id, status)
-
-def get_user_videos(user_id):
-    return db_manager.get_user_videos(user_id)
-
-def get_video_by_s3_key(s3_key):
-    return db_manager.get_video_by_s3_key(s3_key)
-
-def delete_video(video_id, user_id):
-    return db_manager.delete_video(video_id, user_id)
-
-def save_detection_results(video_id, frame_objects, summary=None):
-    return db_manager.save_detection_results(video_id, frame_objects, summary)
-
-def get_video_detections(video_id):
-    return db_manager.get_video_detections(video_id)
-
-def add_log(user_id, action, video_id=None):
-    return db_manager.add_log(user_id, action, video_id)
-
-def get_user_logs(user_id, limit=100):
-    return db_manager.get_user_logs(user_id, limit)
-
-
-'''

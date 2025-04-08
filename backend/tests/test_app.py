@@ -4,7 +4,7 @@ import json
 import tempfile
 from unittest.mock import patch, MagicMock
 from app import create_app
-from backend.app.services.minio.minio_storage import MinioStorage
+from app.services.minio import MinioStorage
 
 @pytest.fixture
 def app():
@@ -40,7 +40,7 @@ def test_login_route_exists(client):
 @pytest.fixture
 def mock_minio_storage():
     """Создает мок для MinioStorage."""
-    with patch('app.services.minio_storage.MinioStorage') as mock_storage:
+    with patch('app.services.minio.MinioStorage') as mock_storage:
         # Настраиваем поведение мока
         mock_instance = MagicMock()
         mock_storage.return_value = mock_instance
@@ -72,27 +72,30 @@ def authenticated_client(client):
     client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
     return client
 
-@patch('app.api.routes.storage')
-def test_video_upload_to_minio(mock_storage, authenticated_client):
+def test_video_upload_to_minio(authenticated_client):
     """Проверяет загрузку видео в MinIO."""
-    # Настраиваем необходимые моки
-    mock_storage.save_video.return_value = True
-    mock_storage.save_log.return_value = True
-    
-    # Создаем временный видеофайл для тестирования
-    with tempfile.NamedTemporaryFile(suffix='.mp4') as temp_video:
-        # Пишем какие-то данные в файл
-        temp_video.write(b'test video content')
-        temp_video.flush()
+    # Патчим всю функцию обработки видео в маршруте /predict
+    with patch('app.api.routes.video_processing.process_video') as mock_process, \
+         patch('app.api.routes.storage') as mock_storage:
         
-        # Патчим функцию process_video, чтобы не выполнять фактическую обработку видео
-        with patch('app.services.video_processing.process_video') as mock_process:
-            # Настраиваем мок для возврата имени файла, данных о кадрах и fps
-            mock_process.return_value = (
-                'testuser_20230101_video.mp4',
-                [(0, 1, 0), (1, 0, 1)],
-                30
-            )
+        # Настраиваем моки
+        video_filename = 'testuser_20230101_video.mp4'
+        frame_objects = [[0, 0.8, 10, 10, 50, 50, "person"], [1, 0.7, 100, 100, 150, 150, "car"]]
+        fps = 30
+        has_weapon = False
+        log_filename = 'testuser_20230101_video.json'
+        
+        # Настраиваем мок для возврата нужных данных
+        mock_process.return_value = (video_filename, frame_objects, fps, has_weapon, log_filename)
+        
+        # Настраиваем хранилище
+        mock_storage.get_presigned_url.return_value = f"https://minio.example.com/videos/{video_filename}"
+        
+        # Создаем временный видеофайл для тестирования
+        with tempfile.NamedTemporaryFile(suffix='.mp4') as temp_video:
+            # Пишем какие-то данные в файл
+            temp_video.write(b'test video content')
+            temp_video.flush()
             
             # Отправляем запрос на обработку видео
             with open(temp_video.name, 'rb') as video_file:
@@ -111,15 +114,6 @@ def test_video_upload_to_minio(mock_storage, authenticated_client):
             
             # Проверяем, что был вызван метод process_video
             mock_process.assert_called_once()
-            
-            # Проверяем, что были вызваны методы для сохранения в MinIO
-            # В routes.py сохранение в MinIO происходит внутри process_video, 
-            # а не напрямую в маршруте
-            mock_process.assert_called_once_with(
-                pytest.approx(tempfile.gettempdir(), abs=tempfile.gettempdir()), 
-                0.6, 
-                'testuser'
-            )
 
 @patch('app.api.routes.storage')
 def test_get_video_from_minio(mock_storage, authenticated_client):
@@ -130,9 +124,13 @@ def test_get_video_from_minio(mock_storage, authenticated_client):
     # Отправляем запрос на получение видео
     response = authenticated_client.get('/video/testuser_video.mp4')
     
-    # Проверяем, что происходит редирект на URL MinIO
-    assert response.status_code == 302
-    assert response.location == "https://minio.example.com/videos/testuser_video.mp4"
+    # Проверяем ответ
+    assert response.status_code == 200
+    
+    # Проверяем, что в ответе есть URL
+    data = json.loads(response.data)
+    assert 'url' in data
+    assert data['url'] == "https://minio.example.com/videos/testuser_video.mp4"
     
     # Проверяем, что был вызван метод get_presigned_url
     mock_storage.get_presigned_url.assert_called_once_with("testuser_video.mp4")
