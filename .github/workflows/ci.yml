@@ -32,7 +32,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
           
-   
+    - name: Кэширование npm зависимостей
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
     
     - name: Использование скрипта build.sh для сборки проекта
       run: |
@@ -49,7 +55,7 @@ jobs:
         docker save backend-app -o backend-app.tar
     
     - name: Загрузка артефакта бэкенда
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: backend-app-image
         path: backend-app.tar
@@ -60,7 +66,7 @@ jobs:
         npm run build
         
     - name: Загрузка артефакта фронтенда
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: frontend-build
         path: frontend/dist
