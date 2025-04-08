@@ -45,31 +45,10 @@ jobs:
         chmod +x ./build.sh
         ./build.sh build
     
-    - name: Сборка Docker образа для бэкенда
-      run: |
-        cd backend
-        docker build -t backend-app .
     
-    - name: Сохранение Docker образа как артефакт
-      run: |
-        docker save backend-app -o backend-app.tar
     
-    - name: Загрузка артефакта бэкенда
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-app-image
-        path: backend-app.tar
-        
-    - name: Сборка фронтенда
-      run: |
-        cd frontend
-        npm run build
-        
-    - name: Загрузка артефакта фронтенда
-      uses: actions/upload-artifact@v4
-      with:
-        name: frontend-build
-        path: frontend/dist
+    
+    
   
   # ЭТАП ТЕСТИРОВАНИЯ БЭКЕНДА
   backend-test:
@@ -82,7 +61,7 @@ jobs:
     - name: Настройка Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
 
     - name: Кэширование Python зависимостей
       uses: actions/cache@v3
