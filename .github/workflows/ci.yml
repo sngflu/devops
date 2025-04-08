@@ -81,7 +81,7 @@ jobs:
     - name: Запуск сервисов через Docker Compose
       run: |
         # Используем существующий docker-compose.yml, но запускаем только необходимые сервисы
-        docker-compose up -d postgres minio
+        docker compose up -d postgres minio
         
         # Ждем, пока сервисы запустятся
         echo "Ожидание 20 секунд, пока сервисы запустятся..."
@@ -90,7 +90,7 @@ jobs:
     - name: Проверка статуса сервисов
       run: |
         docker ps
-        docker-compose logs
+        docker compose logs
     
     - name: Запуск тестов с использованием сервисов
       run: |
@@ -123,5 +123,5 @@ jobs:
         
     - name: Остановка сервисов
       run: |
-        docker-compose down
+        docker compose down -v
       if: always() # Убедимся, что сервисы остановятся даже если тесты завершились с ошибкой
