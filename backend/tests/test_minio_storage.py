@@ -97,7 +97,7 @@ def test_get_presigned_url(storage):
     storage.client.stat_object.return_value = True
 
     # Вызываем метод получения URL
-    url = storage.get_presigned_url("test_video.mp4", expires=3600)
+    url = storage.get_presigned_url("test_video.mp4", expires=7)
 
     # Проверяем результат
     assert url == "http://example.com/test_video.mp4"
@@ -112,7 +112,7 @@ def test_get_presigned_url(storage):
     storage.client.presigned_get_object.assert_called_once_with(
         bucket_name=storage.video_bucket,
         object_name='test_video.mp4',
-        expires=timedelta(seconds=3600)
+        expires=timedelta(days=7)
     )
 
 def test_get_log(storage):

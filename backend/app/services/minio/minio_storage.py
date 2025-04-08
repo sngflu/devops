@@ -352,17 +352,17 @@ class MinioStorage:
             return False
             
     @retry_s3_operation()
-    def get_presigned_url(self, object_name, expires=3600):
+    def get_presigned_url(self, object_name, expires=7):
         """Создание временной ссылки на видео в Minio
         
         Args:
             object_name (str): Имя объекта в Minio
-            expires (int, optional): Время жизни ссылки в секундах
+            expires (int, optional): Время жизни ссылки в днях
             
         Returns:
             str or None: URL или None в случае ошибки
         """
-        logger.info(f"Создание временной ссылки для {object_name} со сроком действия {expires} секунд")
+        logger.info(f"Создание временной ссылки для {object_name} со сроком действия {expires} дней")
         try:
             self.ensure_connection()
 
@@ -378,7 +378,7 @@ class MinioStorage:
             url = self.client.presigned_get_object(
                 bucket_name=self.video_bucket,
                 object_name=object_name,
-                expires=timedelta(seconds=expires)
+                expires=timedelta(days=expires)
             )
             
             logger.info(f"Временная ссылка для {object_name} успешно создана")

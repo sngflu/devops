@@ -263,7 +263,7 @@ def get_video_url(filename):
         return jsonify({"message": "Unauthorized"}), 401
 
     try:
-        expires = int(request.args.get('expires', 3600))
+        expires = int(request.args.get('expires', 7))
         video_url = storage.get_presigned_url(filename, expires)
         if video_url:
             return jsonify({"url": video_url, "expires_in": expires}), 200
