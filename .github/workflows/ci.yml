@@ -116,7 +116,7 @@ jobs:
         pytest tests/ --cov=app --cov-report=xml
         
     - name: Загрузка отчета о покрытии
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: backend-coverage-report
         path: backend/coverage.xml
