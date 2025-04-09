@@ -120,7 +120,7 @@ jobs:
         run: |
           docker compose down -v
         if: always() # Убедимся, что сервисы остановятся даже если тесты завершились с ошибкой
-  
+
   frontend-test:
     runs-on: ubuntu-latest
     needs: build
@@ -152,7 +152,7 @@ jobs:
           npm test
 
       - name: Загрузка отчета о покрытии
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
           path: frontend/coverage
