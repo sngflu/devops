@@ -5,7 +5,7 @@ import tempfile
 from unittest.mock import patch, MagicMock
 from app.services.minio.minio_storage import MinioStorage
 from datetime import timedelta
-
+from minio.commonconfig import CopySource
 @pytest.fixture
 def mock_minio_client():
     """Фикстура для мокирования клиента MinIO"""
@@ -146,13 +146,16 @@ def test_rename_object(storage):
 
     assert result is True
 
+    assert storage.client.copy_object.call_count == 1
     
-    storage.client.copy_object.assert_called_once_with(
-        bucket_name=storage.video_bucket,
-        object_name='new_name.mp4',
-        source_bucket_name=storage.video_bucket,
-        source_object_name='old_name.mp4'
-    )
+    call_args = storage.client.copy_object.call_args[1]
+    assert call_args['bucket_name'] == storage.video_bucket
+    assert call_args['object_name'] == 'new_name.mp4'
+    
+    assert isinstance(call_args['source'], CopySource)
+    assert call_args['source'].bucket_name == storage.video_bucket
+    assert call_args['source'].object_name == 'old_name.mp4'
+    
     storage.client.remove_object.assert_called_once_with(
         bucket_name=storage.video_bucket,
         object_name='old_name.mp4'

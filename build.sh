@@ -84,7 +84,6 @@ function stop_project() {
     echo "✅ Проект остановлен!"
 }
 
-# Обработка аргументов командной строки
 case "$1" in
     "stop")
         stop_project
@@ -96,7 +95,6 @@ case "$1" in
         build_project
         ;;
     *)
-        # По умолчанию выполняем сборку и запуск
         build_project
         start_project
         ;;

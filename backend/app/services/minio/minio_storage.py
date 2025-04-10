@@ -29,7 +29,6 @@ def retry_s3_operation(max_retries=3, backoff_factor=0.3):
                     logger.debug(f"Функция {func.__name__} выполнена успешно")
                     return result
                 except S3Error as e:
-                    # Некоторые ошибки не стоит повторять
                     if e.code in ["NoSuchKey", "AccessDenied"]:
                         logger.error(f"Критическая ошибка S3 в {func.__name__}: {e}. Повтор невозможен.")
                         raise
@@ -193,13 +192,15 @@ class MinioStorage:
         try:
             self.ensure_connection()
             
-            self.client.copy_object(
+            # Создаем копию с новым именем используя CopySource
+            copy_source = CopySource(source_bucket, source_object)
+            result = self.client.copy_object(
                 bucket_name=source_bucket,
                 object_name=target_object,
-                source_bucket_name=source_bucket,
-                source_object_name=source_object
+                source=copy_source
             )
             
+            # Удаляем оригинал
             self.client.remove_object(
                 bucket_name=source_bucket,
                 object_name=source_object
