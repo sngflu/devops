@@ -2,20 +2,31 @@
 
 set -e  # Прервать выполнение скрипта при ошибке
 
-function build_project() {
-    echo "🚀 Начинаем сборку проекта..."
-
+function build_frontend() {
+    echo "🌐 Начинаем сборку frontend..."
     # Установка зависимостей для frontend
     echo "📦 Установка зависимостей frontend..."
     cd frontend
     npm install
     cd ..
+    echo "✅ Сборка frontend успешно завершена!"
+}
 
+function build_backend() {
+    echo "🔧 Начинаем сборку backend..."
     # Установка зависимостей для backend
     echo "📦 Установка зависимостей backend..."
     cd backend
     python -m pip install -r requirements.txt
     cd ..
+    echo "✅ Сборка backend успешно завершена!"
+}
+
+function build_project() {
+    echo "🚀 Начинаем сборку всего проекта..."
+
+    build_frontend
+    build_backend
 
     echo "✅ Сборка проекта успешно завершена!"
 }
@@ -40,9 +51,7 @@ function start_project() {
     cd ..
     
     echo "✅ Проект запущен!"
-    echo "🌐 Фронтенд доступен по адресу: http://localhost:5173"
-    echo "🔧 Бэкенд доступен по адресу: http://localhost:5174"
-    echo "💡 Для авторизации используйте: username=admin, password=zxc"
+    echo "🌐 Фронтенд доступен по адресу: http://localhost:5173/login"
     echo "📝 Логи бэкенда: backend.log"
     echo "📝 Логи фронтенда: frontend.log"
     echo "⚠️ Для остановки проекта выполните: ./build.sh stop"
@@ -93,6 +102,12 @@ case "$1" in
         ;;
     "build")
         build_project
+        ;;
+    "build-frontend")
+        build_frontend
+        ;;
+    "build-backend")
+        build_backend
         ;;
     *)
         build_project
