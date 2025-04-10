@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ReactPlayer from 'react-player';
-import axiosInstance from '../../utils/axios';
 import DetectionResults from '../detectionResult/detectionResults';
 import './resultPage.css';
 
 const ResultPage = () => {
     const { state } = useLocation();
     const [videoUrl, setVideoUrl] = useState('');
+    const [currentFrame, setCurrentFrame] = useState(null);
+    const playerRef = useRef(null);
     const token = localStorage.getItem('token');
 
     useEffect(() => {
@@ -20,11 +21,8 @@ const ResultPage = () => {
                 });
 
                 if (response.ok) {
-                    const blob = await response.blob();
-                    const url = URL.createObjectURL(blob);
-                    setVideoUrl(url);
-                } else {
-                    console.error('Failed to fetch video:', response.status);
+                    const data = await response.json();
+                    setVideoUrl(data.url);
                 }
             } catch (error) {
                 console.error('Error fetching video:', error);
@@ -32,38 +30,48 @@ const ResultPage = () => {
         };
 
         fetchVideo();
-
-        return () => {
-            if (videoUrl) {
-                URL.revokeObjectURL(videoUrl);
-            }
-        };
     }, [state.video_url, token]);
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (videoUrl) {
-            const link = document.createElement('a');
-            link.href = videoUrl;
-            link.download = state.video_url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                const response = await fetch(videoUrl);
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = state.video_url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('Download error:', error);
+            }
         }
     };
 
-    // В компоненте ResultPage измените разметку на:
+    const handleFrameSeek = (frameNumber) => {
+        setCurrentFrame(frameNumber);
+        if (playerRef.current) {
+            const seekTo = frameNumber / 30;
+            playerRef.current.seekTo(seekTo, 'seconds');
+        }
+    };
+
     return (
         <div className="content-result">
             <div className="main-container">
-                <div></div> {/* Левая пустая секция */}
+                <div></div>
 
                 <div className="player-section">
                     <div className="player-wrapper">
                         {videoUrl && (
                             <ReactPlayer
+                                ref={playerRef}
                                 url={videoUrl}
                                 controls
-                                playing
+                                playing={false}
                                 config={{
                                     file: {
                                         attributes: {
@@ -86,7 +94,11 @@ const ResultPage = () => {
                 <div className="detection-container">
                     <h2>Detection Log</h2>
                     <div className="detection-results">
-                        <DetectionResults frameObjects={state.frame_objects} />
+                        <DetectionResults
+                            frameObjects={state.frame_objects}
+                            onFrameClick={handleFrameSeek}
+                            currentFrame={currentFrame}
+                        />
                     </div>
                 </div>
             </div>
