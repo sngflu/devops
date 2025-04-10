@@ -74,4 +74,35 @@ describe('MainPage Component', () => {
 
         expect(navigateMock).toHaveBeenCalledWith('/result', expect.any(Object));
     });
+
+    it('navigates to catalog when Catalog button is clicked', () => {
+        render(<MainPage />);
+        fireEvent.click(screen.getByText('Catalog'));
+        expect(navigateMock).toHaveBeenCalledWith('/catalog');
+    });
+
+    it('logs an error if video upload fails', async () => {
+        const errorMessage = 'Network error';
+        axios.post.mockRejectedValue(new Error(errorMessage));
+
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        render(<MainPage />);
+        const file = new File(['dummy content'], 'error-video.mp4', { type: 'video/mp4' });
+
+        fireEvent.click(screen.getByText('Open file'));
+        const input = document.querySelector('input[type="file"]');
+        fireEvent.change(input, { target: { files: [file] } });
+
+        fireEvent.click(screen.getByText('Detect'));
+
+        await waitFor(() => {
+            expect(errorSpy).toHaveBeenCalledWith(
+                'Error sending video to backend:',
+                expect.any(Error)
+            );
+        });
+
+        errorSpy.mockRestore();
+    });
 });

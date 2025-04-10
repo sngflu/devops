@@ -39,4 +39,46 @@ describe('DetectionResults Component', () => {
 
         expect(mockOnFrameClick).toHaveBeenCalledWith(1);
     });
+
+    it('renders empty message when no weapons or knives are detected', () => {
+        const input = [
+            [5, 0, 0], // не должен отображаться
+            [6, 1, 0], // weapon
+            [7, 0, 0], // не должен отображаться
+            [8, 0, 1], // knife
+            [9, 0, 0], // не должен отображаться
+            [10, 0, 0], // пустой, но отличается от предыдущих по кадру
+        ];
+
+        render(<DetectionResults
+            frameObjects={input}
+            onFrameClick={() => { }}
+            currentFrame={null}
+        />);
+
+        expect(screen.queryByText(/Frame 5/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Frame 7/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Frame 9/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Frame 10/)).not.toBeInTheDocument();
+    });
+
+    it('highlights the current frame', () => {
+        const mockFrameObjects = [
+            [1, 2, 0],
+            [2, 0, 0],
+            [3, 0, 1],
+            [4, 1, 1]
+        ];
+
+        render(<DetectionResults
+            frameObjects={mockFrameObjects}
+            onFrameClick={() => { }}
+            currentFrame={3}
+        />);
+
+        const paragraph = screen.getByText(/Frame 3\. Detected knife\./);
+        const logItem = paragraph.closest('.log-item');
+
+        expect(logItem.classList.contains('active')).toBe(true);
+    });
 });

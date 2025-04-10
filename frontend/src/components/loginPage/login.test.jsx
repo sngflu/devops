@@ -43,4 +43,24 @@ describe('Login Component', () => {
             );
         });
     });
+
+    it('shows error message on failed login', async () => {
+        axiosInstance.post.mockRejectedValue(new Error('Invalid credentials'));
+
+        render(<Login />);
+
+        fireEvent.change(screen.getByPlaceholderText('Username'), {
+            target: { value: 'wronguser' }
+        });
+
+        fireEvent.change(screen.getByPlaceholderText('Password'), {
+            target: { value: 'wrongpassword' }
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: /login/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/invalid username or password/i)).toBeInTheDocument();
+        });
+    });
 });
