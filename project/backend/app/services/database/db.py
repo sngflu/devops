@@ -25,7 +25,7 @@ class DatabaseManager:
             'dbname': os.environ.get('DB_NAME', 'pgdatabase'),
             'user': os.environ.get('DB_USER', 'pguser'),
             'password': os.environ.get('DB_PASSWORD', 'pgpassword'),
-            'host': os.environ.get('DB_HOST', 'localhost'),
+            'host': os.environ.get('DB_HOST', 'postgres'),
             'port': os.environ.get('DB_PORT', '5432')
         }
 

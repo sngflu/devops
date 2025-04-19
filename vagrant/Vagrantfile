@@ -1,0 +1,45 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/focal64"
+  config.vm.hostname = "docker-host"
+  
+  # Перенаправление портов для доступа к приложениям
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 8000, host: 8000
+  config.vm.network "forwarded_port", guest: 8080, host: 8081
+  
+  # Приватная сеть для доступа к VM
+  config.vm.network "private_network", ip: "192.168.56.10"
+  
+  # Настройка параметров VirtualBox
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "2048"
+    vb.cpus = 2
+    vb.name = "lab2-docker-vm"
+  end
+  
+  # Установка Docker и Docker Compose с помощью скрипта
+  config.vm.provision "shell", inline: <<-SHELL
+    apt-get update
+    apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io
+    
+    # Установка Docker Compose
+    curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    
+    # Добавление пользователя vagrant в группу docker
+    usermod -aG docker vagrant
+    
+    # Включение и запуск сервиса Docker
+    systemctl enable docker
+    systemctl start docker
+    
+    echo "Docker успешно установлен!"
+  SHELL
+end 

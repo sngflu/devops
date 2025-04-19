@@ -1,0 +1,32 @@
+# Зависимости
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Окружение
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Сборка
+/dist
+/build
+/.next
+
+# Файлы IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Файлы системы
+.DS_Store
+Thumbs.db
+
+# Файлы docker
+Dockerfile*
+docker-compose*
+.dockerignore 
