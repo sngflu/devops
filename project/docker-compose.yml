@@ -38,6 +38,7 @@ services:
     restart: always
     volumes:
       - ./frontend:/app
+      - /app/node_modules
     ports:
       - "5173:5173"
     networks:
@@ -123,4 +124,4 @@ networks:
 volumes:
   postgres_data:
   pgadmin_data:
-  minio_data: 
+  minio_data:
