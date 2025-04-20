@@ -1,0 +1,7 @@
+---
+- name: Установка Docker и развертывание проекта
+  hosts: servers
+  become: yes
+  roles:
+    - docker
+    - deploy_app 
