@@ -1,0 +1,28 @@
+# Виртуальное окружение Python
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Логи и временные файлы
+*.log
+*.pot
+*.pyc
+.Python
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Файлы IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Файлы docker
+Dockerfile*
+docker-compose*
+.dockerignore 

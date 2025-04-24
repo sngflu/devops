@@ -109,3 +109,126 @@ python -m app.utils.migrate_to_minio
 3. Проверьте, что MinIO доступен и имеет достаточно места
 
 > Примечание: Если MinIO недоступен, система автоматически сохранит видео в локальном хранилище.
+
+# Лабораторная работа №2 - Terraform с libvirt
+
+## Предварительные требования
+
+Перед началом работы убедитесь, что у вас установлены:
+
+1. libvirt и QEMU:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+   ```
+
+2. Terraform - https://www.terraform.io/downloads.html
+
+3. WSL (Windows Subsystem for Linux) - если вы работаете в Windows
+   * Для работы libvirt в WSL рекомендуется WSL2
+
+4. Добавьте пользователя в группу libvirt:
+   ```bash
+   sudo usermod -aG libvirt $USER
+   newgrp libvirt
+   ```
+
+## Настройка проекта
+
+1. Создайте копию файла `terraform.tfvars.example` с именем `terraform.tfvars` и заполните необходимые параметры:
+
+```
+libvirt_uri = "qemu:///system"
+vm_image_url = "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+ssh_username = "ubuntu"
+ssh_password = "your_password_here"
+```
+
+2. Выполните инициализацию Terraform:
+
+```bash
+terraform init
+```
+
+3. Проверьте план выполнения:
+
+```bash
+terraform plan
+```
+
+4. Разверните виртуальную машину:
+
+```bash
+terraform apply
+```
+
+5. Для удаления инфраструктуры:
+
+```bash
+terraform destroy
+```
+
+## Работа с Docker на виртуальной машине
+
+После создания виртуальной машины Docker будет автоматически установлен.
+IP-адрес виртуальной машины будет выведен в консоль после успешного применения конфигурации.
+
+Для подключения к виртуальной машине используйте:
+
+```bash
+ssh <ssh_username>@<vm_ip>
+```
+
+## Создание Docker-образа
+
+1. Клонируйте ваше приложение из Лабораторной работы №1 на виртуальную машину
+2. Создайте Dockerfile для вашего приложения
+3. Соберите образ Docker:
+
+```bash
+docker build -t myapp:latest .
+```
+
+## Сохранение образа в облачном реестре
+
+Для сохранения образа в Docker Hub:
+
+1. Войдите в Docker Hub:
+
+```bash
+docker login
+```
+
+2. Отметьте образ соответствующим тегом:
+
+```bash
+docker tag myapp:latest username/myapp:latest
+```
+
+3. Отправьте образ в репозиторий:
+
+```bash
+docker push username/myapp:latest
+```
+
+## Примечания
+
+- Если вы используете WSL в Windows, убедитесь, что сервис libvirt запущен:
+  ```bash
+  sudo service libvirtd start
+  ```
+
+- Для проверки статуса libvirt:
+  ```bash
+  sudo service libvirtd status
+  ```
+
+- Если возникают проблемы с доступом, проверьте права:
+  ```bash
+  sudo chmod 666 /var/run/libvirt/libvirt-sock
+  ```
+
+- Для доступа к графическому интерфейсу виртуальной машины:
+  ```bash
+  sudo virt-manager
+  ```

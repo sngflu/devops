@@ -2,32 +2,49 @@ version: '3'
 
 services:
   # Backend сервис
-  #backend:
-  #  build:
-  #    context: ./backend
-  #    dockerfile: Dockerfile
-  #  container_name: backend
-  #  restart: always
-  #  volumes:
-  #    - ./backend:/app
-  #    - ./storage:/app/storage
-  #  environment:
-  #    - USE_MINIO=true
-  #    - MINIO_ENDPOINT=minio:9000
-  #    - MINIO_ACCESS_KEY=minioadmin
-  #    - MINIO_SECRET_KEY=minioadmin
-  #    - MINIO_SECURE=false
-  #    - MODEL_PATH=/app/app/utils/yolov8nv2_e200_bs16.pt
-  #  ports:
-  #    - "5174:5174"
-  #  command: ["python", "wsgi.py"]
-  #  networks:
-  #    - app-network
-  #  depends_on:
-  #    postgres:
-  #      condition: service_healthy
-  #    minio:
-  #      condition: service_healthy
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: always
+    volumes:
+      - ./backend:/app
+      - ./storage:/app/storage
+    environment:
+      - USE_MINIO=true
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECURE=false
+      - MODEL_PATH=/app/app/utils/yolov8nv2_e200_bs16.pt
+    ports:
+      - "5174:5174"
+    command: ["python", "wsgi.py"]
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # Frontend сервис
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: always
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    networks:
+      - app-network
+    depends_on:
+      - backend
 
   # PostgreSQL сервис
   postgres:
@@ -78,7 +95,7 @@ services:
       retries: 5
       start_period: 10s
 
-  # MinIO сервис (S3-совместимое хранилище)
+  # MinIO сервис
   minio:
     image: minio/minio
     container_name: minio
@@ -107,4 +124,4 @@ networks:
 volumes:
   postgres_data:
   pgadmin_data:
-  minio_data: 
+  minio_data:

@@ -1,0 +1,10 @@
+{
+  "virtualbox": {
+    "/vagrant": {
+      "guestpath": "/vagrant",
+      "hostpath": "/home/sngflu/IT/devops/vagrant",
+      "disabled": false,
+      "__vagrantfile": true
+    }
+  }
+}
