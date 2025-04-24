@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e  # Прервать выполнение скрипта при ошибке
+set -e
 
 function start_containers() {
     echo "🚀 Запускаем контейнеры..."

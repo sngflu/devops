@@ -95,7 +95,7 @@ services:
       retries: 5
       start_period: 10s
 
-  # MinIO сервис (S3-совместимое хранилище)
+  # MinIO сервис
   minio:
     image: minio/minio
     container_name: minio

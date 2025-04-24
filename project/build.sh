@@ -1,17 +1,15 @@
 #!/bin/bash
 
-set -e  # Прервать выполнение скрипта при ошибке
+set -e
 
 function build_project() {
     echo "🚀 Начинаем сборку проекта..."
 
-    # Установка зависимостей для frontend
     echo "📦 Установка зависимостей frontend..."
     cd frontend
     npm install
     cd ..
 
-    # Установка зависимостей для backend
     echo "📦 Установка зависимостей backend..."
     cd backend
     python -m pip install -r requirements.txt
@@ -23,7 +21,6 @@ function build_project() {
 function start_project() {
     echo "🚀 Запускаем проект..."
     
-    # Запуск бэкенда
     echo "🔧 Запуск backend..."
     cd backend
     python wsgi.py > ../backend.log 2>&1 &
@@ -31,7 +28,6 @@ function start_project() {
     echo $BACKEND_PID > ../backend.pid
     cd ..
     
-    # Запуск фронтенда
     echo "🌐 Запуск frontend..."
     cd frontend
     npm run dev > ../frontend.log 2>&1 &
@@ -51,7 +47,6 @@ function start_project() {
 function stop_project() {
     echo "🛑 Останавливаем проект..."
     
-    # Остановка бэкенда
     if [ -f "backend.pid" ]; then
         BACKEND_PID=$(cat backend.pid)
         if ps -p $BACKEND_PID > /dev/null; then
@@ -66,7 +61,6 @@ function stop_project() {
         pkill -f "python wsgi.py" || true
     fi
     
-    # Остановка фронтенда
     if [ -f "frontend.pid" ]; then
         FRONTEND_PID=$(cat frontend.pid)
         if ps -p $FRONTEND_PID > /dev/null; then
