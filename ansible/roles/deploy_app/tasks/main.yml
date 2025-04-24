@@ -3,11 +3,11 @@
   file:
     path: /opt/myproject
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Копирование проекта на ВМ
   synchronize:
-    src: /home/aleks/code/devops/project/
+    src: /home/sngflu/IT/devops/project/
     dest: /opt/myproject/
     delete: yes
     rsync_opts:
@@ -55,20 +55,20 @@
     dest: /opt/myproject/build.sh
     content: |
       #!/bin/bash
-      
+
       # Отключаем буферизацию вывода
       export PYTHONUNBUFFERED=1
-      
+
       echo "=== Начинаем сборку Docker-образов ==="
       cd /opt/myproject
-      
+
       # Используем stdbuf для отключения буферизации
       stdbuf -o0 docker-compose build --no-cache --progress=plain
-      
+
       echo "=== Сборка Docker-образов успешно завершена ==="
-      
+
       exit 0
-    mode: '0755'
+    mode: "0755"
 
 - name: Запуск скрипта сборки Docker в режиме реального времени
   shell: "cd /opt/myproject && ./build.sh"
@@ -76,7 +76,7 @@
   # Используем pty для эмуляции интерактивной сессии
   args:
     executable: /bin/bash
-    
+
 - name: Вывод результатов выполнения скрипта сборки
   debug:
     msg: "{{ build_script_result.stdout_lines }}"
@@ -128,8 +128,8 @@
 
 - name: Вывод логов контейнеров
   debug:
-    msg: 
+    msg:
       - "Логи контейнера {{ item.item }}:"
       - "{{ item.stdout_lines }}"
   loop: "{{ container_logs.results }}"
-  when: running_containers.stdout_lines | length > 0 
+  when: running_containers.stdout_lines | length > 0

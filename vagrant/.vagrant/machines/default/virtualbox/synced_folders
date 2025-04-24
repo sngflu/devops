@@ -1,1 +1,10 @@
-{"virtualbox":{"/vagrant":{"guestpath":"/vagrant","hostpath":"C:/Users/Aleks/Documents/code/devops/vagrant","disabled":false,"__vagrantfile":true}}}
+{
+  "virtualbox": {
+    "/vagrant": {
+      "guestpath": "/vagrant",
+      "hostpath": "/home/sngflu/IT/devops/vagrant",
+      "disabled": false,
+      "__vagrantfile": true
+    }
+  }
+}
