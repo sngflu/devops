@@ -157,3 +157,50 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
           if-no-files-found: error
+          
+  # ЭТАП СБОРКИ И ПУБЛИКАЦИИ DOCKER-ОБРАЗОВ
+  docker-publish:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    # Публикуем образы только при push в основные ветки, не в pull request
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Установка Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Получение короткого SHA коммита
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Авторизация в Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Сборка и публикация образа бэкенда
+      - name: Сборка и публикация образа бэкенда
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ steps.vars.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+          cache-to: type=inline
+
+      # Сборка и публикация образа фронтенда
+      - name: Сборка и публикация образа фронтенда
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.vars.outputs.sha_short }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+          cache-to: type=inline

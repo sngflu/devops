@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: app-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
+        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+          value: "Admin"
+        - name: GF_AUTH_BASIC_ENABLED
+          value: "false"
+        - name: GF_SERVER_ROOT_URL
+          value: "/grafana"
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources
+          readOnly: true
+        - name: grafana-dashboards-providers
+          mountPath: /etc/grafana/provisioning/dashboards
+          readOnly: true
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+          readOnly: true
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "300m"
+            memory: "512Mi"
+      volumes:
+      - name: grafana-storage
+        emptyDir: {}
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards-providers
+        configMap:
+          name: grafana-dashboards-providers
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards 

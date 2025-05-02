@@ -1,0 +1,32 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: app-namespace
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 15  # 15% нагрузки на ЦП - порог для масштабирования
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60  # Ждать 1 минуту перед увеличением реплик
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Ждать 5 минут перед уменьшением реплик
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15 

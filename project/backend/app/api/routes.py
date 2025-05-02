@@ -434,3 +434,11 @@ def update_video(filename):
     except Exception as e:
         logger.error(f"Ошибка при переименовании видео: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+@bp.route('/health')
+def health_check():
+    return {"status": "healthy"}, 200
+
+@bp.route('/')
+def root():
+    return {"status": "running"}, 200

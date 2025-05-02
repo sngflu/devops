@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: app-namespace
+spec:
+  replicas: 1  # Начальное количество реплик
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: localhost:5000/backend:latest  # Этот образ будет заменен на образ из реестра
+        imagePullPolicy: IfNotPresent  # Для локальной разработки
+        ports:
+        - containerPort: 5174
+        env:
+        - name: USE_MINIO
+          value: "true"
+        - name: MINIO_ENDPOINT
+          value: "minio:9000"
+        - name: MINIO_ACCESS_KEY
+          value: "minioadmin"
+        - name: MINIO_SECRET_KEY
+          value: "minioadmin"
+        - name: MINIO_SECURE
+          value: "false"
+        - name: MODEL_PATH
+          value: "/app/app/utils/yolov8nv2_e200_bs16.pt"
+        - name: POSTGRES_HOST
+          value: "postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_USER
+          value: "pguser"
+        - name: POSTGRES_PASSWORD
+          value: "pgpassword"
+        - name: POSTGRES_DB
+          value: "pgdatabase"
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "pguser"
+        - name: DB_PASSWORD
+          value: "pgpassword"
+        - name: DB_NAME
+          value: "pgdatabase"
+        - name: DEBUG
+          value: "True"
+        resources:
+          requests:
+            cpu: "100m"  # 100 милли-ядер ЦП (10% ядра)
+            memory: "512Mi"  # Увеличен запрос памяти
+          limits:
+            cpu: "500m"  # 500 милли-ядер ЦП (50% ядра)
+            memory: "1024Mi"  # Увеличен лимит памяти до 1GB
+        readinessProbe:
+          tcpSocket:
+            port: 5174
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 5174
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          failureThreshold: 3 
