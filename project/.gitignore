@@ -1,0 +1,29 @@
+__pychache__/
+storage/
+*.pyc
+
+# Игнорировать все видеофайлы
+*.mp4
+*.avi 
+
+*.log
+*.pid
+
+
+# Игнорировать файлы Cursor
+.cursor/
+node_modules/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+terraform.tfvars
+
+# Локальные файлы конфигурации
+.env
+
+# Образы дисков
+*.iso
+*.img

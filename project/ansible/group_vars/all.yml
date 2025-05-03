@@ -1,0 +1,6 @@
+---
+# Переменные для проекта
+docker_container_name: myapp
+docker_image_name: myapp
+docker_image_tag: latest
+app_port: 80 
