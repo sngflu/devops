@@ -22,58 +22,44 @@ echo "IP Minikube: $MINIKUBE_IP"
 # Проверка версии Docker
 docker --version
 
-# Остановка и удаление существующего registry если он запущен
-if docker ps -a | grep -q registry; then
-  echo "Остановка и удаление существующего Docker Registry..."
-  docker stop registry || true
-  docker rm registry || true
-fi
+# Аккаунт Docker Hub
+DOCKER_USERNAME="sanchous1000"
+REGISTRY="$DOCKER_USERNAME"
+echo "Используем Docker Hub аккаунт: $DOCKER_USERNAME"
 
-# Запуск локального Docker registry
-echo "Запуск локального Docker Registry..."
-docker run -d --name registry -p 5000:5000 --restart=always registry:2
+# Проверка авторизации в Docker Hub
+echo "Проверка авторизации в Docker Hub..."
+docker login
 
-# Даем время на запуск registry
-sleep 3
-
-# Репозиторий Docker Registry для локальной сборки
-REGISTRY="localhost:5000"
-echo "Используем registry по адресу: $REGISTRY"
-
-# Сборка и отправка в registry образа backend
+# Сборка и отправка в Docker Hub образа backend
 echo "Сборка backend образа..."
 cd "$PROJECT_DIR/backend"
 docker build -t "$REGISTRY/backend:latest" .
 docker push "$REGISTRY/backend:latest"
 
-# Сборка и отправка в registry образа frontend
+# Сборка и отправка в Docker Hub образа frontend
 echo "Сборка frontend образа..."
 cd "$PROJECT_DIR/frontend"
 docker build -t "$REGISTRY/frontend:latest" .
 docker push "$REGISTRY/frontend:latest"
 
-echo "Образы успешно собраны и отправлены в registry:"
+echo "Образы успешно собраны и отправлены в Docker Hub:"
 echo "- $REGISTRY/backend:latest"
 echo "- $REGISTRY/frontend:latest"
 
-# Обновляем манифесты Kubernetes, чтобы использовать образы из registry доступного из кластера
+# Обновляем манифесты Kubernetes
 echo "Обновление манифестов Kubernetes..."
 cd "$PROJECT_DIR/kubernetes"
-
-# Адрес registry для доступа изнутри кластера Kubernetes
-# У кластера должен быть доступ к хосту через специальный DNS-адрес
-K8S_REGISTRY="host.minikube.internal:5000"
-echo "Для кластера Kubernetes используем registry по адресу: $K8S_REGISTRY"
 
 # Обновляем ссылки на образы в файлах деплоймента
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS использует sed с другим синтаксисом
-  sed -i '' "s|image: localhost:5000/backend:latest|image: $K8S_REGISTRY/backend:latest|g" backend/deployment.yaml
-  sed -i '' "s|image: localhost:5000/frontend:latest|image: $K8S_REGISTRY/frontend:latest|g" frontend/deployment.yaml
+  sed -i '' "s|image: localhost:5000/backend:latest|image: $REGISTRY/backend:latest|g" backend/deployment.yaml
+  sed -i '' "s|image: localhost:5000/frontend:latest|image: $REGISTRY/frontend:latest|g" frontend/deployment.yaml
 else
   # Linux
-  sed -i "s|image: localhost:5000/backend:latest|image: $K8S_REGISTRY/backend:latest|g" backend/deployment.yaml
-  sed -i "s|image: localhost:5000/frontend:latest|image: $K8S_REGISTRY/frontend:latest|g" frontend/deployment.yaml
+  sed -i "s|image: localhost:5000/backend:latest|image: $REGISTRY/backend:latest|g" backend/deployment.yaml
+  sed -i "s|image: localhost:5000/frontend:latest|image: $REGISTRY/frontend:latest|g" frontend/deployment.yaml
 fi
 
 echo "Манифесты обновлены."

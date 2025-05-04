@@ -15,13 +15,13 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: localhost:5000/frontend:latest
+        image: sanchous1000/frontend:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5173
         env:
         - name: VITE_API_URL
-          value: "http://localhost:4001"
+          value: "http://192.168.0.101:4001"
         resources:
           requests:
             cpu: "100m"

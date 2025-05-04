@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: localhost:5000/backend:latest
+        image: sanchous1000/backend:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5174

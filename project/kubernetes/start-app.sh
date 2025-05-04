@@ -44,20 +44,16 @@ fi
 
 # Запускаем компоненты приложения
 echo -e "${YELLOW}Запускаем базу данных...${NC}"
-kubectl apply -f postgres/deployment.yaml
-kubectl apply -f postgres/service.yaml
+kubectl apply -f postgres
 
 echo -e "${YELLOW}Запускаем хранилище Minio...${NC}"
-kubectl apply -f minio/deployment.yaml
-kubectl apply -f minio/service.yaml
+kubectl apply -f minio
 
 echo -e "${YELLOW}Запускаем бэкенд...${NC}"
-kubectl apply -f backend/deployment.yaml
-kubectl apply -f backend/service.yaml
+kubectl apply -f backend
 
 echo -e "${YELLOW}Запускаем фронтенд...${NC}"
-kubectl apply -f frontend/deployment.yaml
-kubectl apply -f frontend/service.yaml
+kubectl apply -f frontend
 
 echo -e "${YELLOW}Настраиваем Ingress...${NC}"
 kubectl apply -f ingress.yaml
