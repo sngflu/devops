@@ -13,7 +13,7 @@ services:
       - ./storage:/app/storage
     environment:
       - USE_MINIO=true
-      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ENDPOINT=192.168.0.101:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_SECURE=false
@@ -24,8 +24,10 @@ services:
     networks:
       - app-network
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
   # Frontend сервис
   frontend:
@@ -65,10 +67,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   # PgAdmin сервис
   pgadmin:
-    image: dpage/pgadmin4:7.8
+    image: dpage/pgadmin4
     container_name: pgadmin
     restart: always
     environment:
@@ -77,11 +80,12 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-      - ./pgadmin-servers.json:/pgadmin4/servers.json
+      - ./services/pgadmin/servers.json:/pgadmin4/servers.json
     ports:
       - "5050:80"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
     healthcheck:
@@ -89,10 +93,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   # MinIO сервис
   minio:
-    image: bitnami/minio:2023.11.20
+    image: minio/minio
     container_name: minio
     restart: always
     command: server /data --console-address ":9001"
