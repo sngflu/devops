@@ -88,7 +88,8 @@ kubectl apply -f postgres/
 kubectl apply -f minio/
 kubectl apply -f backend/
 kubectl apply -f frontend/
-kubectl apply -f monitoring/
+kubectl apply -f monitoring/grafana/
+kubectl apply -f monitoring/prometheus/
 kubectl apply -f ingress.yaml
 ```
 

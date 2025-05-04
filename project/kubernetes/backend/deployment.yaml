@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
       - name: backend
-        image: localhost:5000/backend:latest  # Этот образ будет заменен на образ из реестра
-        imagePullPolicy: IfNotPresent  # Для локальной разработки
+        image: localhost:5000/backend:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5174
         env:
@@ -56,20 +56,18 @@ spec:
           value: "True"
         resources:
           requests:
-            cpu: "100m"  # 100 милли-ядер ЦП (10% ядра)
-            memory: "512Mi"  # Увеличен запрос памяти
+            cpu: "100m"
+            memory: "512Mi"
           limits:
-            cpu: "500m"  # 500 милли-ядер ЦП (50% ядра)
-            memory: "1024Mi"  # Увеличен лимит памяти до 1GB
-        readinessProbe:
-          tcpSocket:
-            port: 5174
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          failureThreshold: 3
+            cpu: "500m"
+            memory: "1Gi"
         livenessProbe:
           tcpSocket:
             port: 5174
           initialDelaySeconds: 60
           periodSeconds: 20
-          failureThreshold: 3 
+        readinessProbe:
+          tcpSocket:
+            port: 5174
+          initialDelaySeconds: 30
+          periodSeconds: 10 

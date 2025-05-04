@@ -40,14 +40,13 @@ const VideoCatalog = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            const videoResponse = await fetch(
-                `http://127.0.0.1:5174/video/${video.filename}`,
+            const videoResponse = await axios.get(
+                `http://127.0.0.1:5174/video/${video.filename}/url`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            if (videoResponse.ok) {
-                const data = await videoResponse.json();
-                setVideoUrl(data.url);
+            if (videoResponse.data && videoResponse.data.url) {
+                setVideoUrl(videoResponse.data.url);
             }
 
             setSelectedVideo(video);
@@ -156,7 +155,7 @@ const VideoCatalog = () => {
 
     const handleLogClick = (frameNumber) => {
         setCurrentFrame(frameNumber);
-        const video = document.querySelector('.react-player video');
+        const video = document.querySelector('.video-player');
         if (video) {
             const timeInSeconds = frameNumber / 30;
             video.currentTime = timeInSeconds;
@@ -239,20 +238,13 @@ const VideoCatalog = () => {
                     <div className='video-logs'>
                         <div className="video-player-wrapper">
                             {videoUrl && (
-                                <ReactPlayer
-                                    url={videoUrl}
+                                <video
+                                    src={videoUrl}
                                     width="100%"
                                     height="100%"
                                     controls
-                                    playing={false}
-                                    className="react-player"
-                                    config={{
-                                        file: {
-                                            attributes: {
-                                                crossOrigin: 'anonymous'
-                                            }
-                                        }
-                                    }}
+                                    crossOrigin="anonymous"
+                                    className="video-player"
                                 />
                             )}
                         </div>

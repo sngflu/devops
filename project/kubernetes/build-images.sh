@@ -15,19 +15,30 @@ cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
 echo "Директория проекта: $PROJECT_DIR"
 
-# Репозиторий Docker Registry
-REGISTRY="localhost:5000"
+# Хост и порт minikube
+MINIKUBE_IP=$(minikube ip)
+echo "IP Minikube: $MINIKUBE_IP"
 
 # Проверка версии Docker
 docker --version
 
-# Запуск локального Docker registry, если он ещё не запущен
-if ! docker ps | grep -q registry; then
-  echo "Запуск локального Docker Registry..."
-  docker run -d -p 5000:5000 --restart=always --name registry registry:2
-else
-  echo "Локальный Docker Registry уже запущен"
+# Остановка и удаление существующего registry если он запущен
+if docker ps -a | grep -q registry; then
+  echo "Остановка и удаление существующего Docker Registry..."
+  docker stop registry || true
+  docker rm registry || true
 fi
+
+# Запуск локального Docker registry
+echo "Запуск локального Docker Registry..."
+docker run -d --name registry -p 5000:5000 --restart=always registry:2
+
+# Даем время на запуск registry
+sleep 3
+
+# Репозиторий Docker Registry для локальной сборки
+REGISTRY="localhost:5000"
+echo "Используем registry по адресу: $REGISTRY"
 
 # Сборка и отправка в registry образа backend
 echo "Сборка backend образа..."
@@ -45,19 +56,24 @@ echo "Образы успешно собраны и отправлены в regi
 echo "- $REGISTRY/backend:latest"
 echo "- $REGISTRY/frontend:latest"
 
-# Обновляем манифесты Kubernetes, чтобы использовать образы из registry
+# Обновляем манифесты Kubernetes, чтобы использовать образы из registry доступного из кластера
 echo "Обновление манифестов Kubernetes..."
 cd "$PROJECT_DIR/kubernetes"
+
+# Адрес registry для доступа изнутри кластера Kubernetes
+# У кластера должен быть доступ к хосту через специальный DNS-адрес
+K8S_REGISTRY="host.minikube.internal:5000"
+echo "Для кластера Kubernetes используем registry по адресу: $K8S_REGISTRY"
 
 # Обновляем ссылки на образы в файлах деплоймента
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS использует sed с другим синтаксисом
-  sed -i '' "s|image: backend:latest|image: $REGISTRY/backend:latest|g" backend/deployment.yaml
-  sed -i '' "s|image: frontend:latest|image: $REGISTRY/frontend:latest|g" frontend/deployment.yaml
+  sed -i '' "s|image: localhost:5000/backend:latest|image: $K8S_REGISTRY/backend:latest|g" backend/deployment.yaml
+  sed -i '' "s|image: localhost:5000/frontend:latest|image: $K8S_REGISTRY/frontend:latest|g" frontend/deployment.yaml
 else
   # Linux
-  sed -i "s|image: backend:latest|image: $REGISTRY/backend:latest|g" backend/deployment.yaml
-  sed -i "s|image: frontend:latest|image: $REGISTRY/frontend:latest|g" frontend/deployment.yaml
+  sed -i "s|image: localhost:5000/backend:latest|image: $K8S_REGISTRY/backend:latest|g" backend/deployment.yaml
+  sed -i "s|image: localhost:5000/frontend:latest|image: $K8S_REGISTRY/frontend:latest|g" frontend/deployment.yaml
 fi
 
 echo "Манифесты обновлены."

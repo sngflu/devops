@@ -15,13 +15,13 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: localhost:5000/frontend:latest  # Этот образ будет заменен на образ из реестра
-        imagePullPolicy: IfNotPresent  # Для локальной разработки
+        image: localhost:5000/frontend:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5173
         env:
         - name: VITE_API_URL
-          value: "http://backend:5174"
+          value: "http://localhost:4001"
         resources:
           requests:
             cpu: "100m"
@@ -34,7 +34,6 @@ spec:
             path: /
             port: 5173
           initialDelaySeconds: 20
-          periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /

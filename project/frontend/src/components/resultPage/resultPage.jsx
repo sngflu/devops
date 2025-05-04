@@ -14,7 +14,8 @@ const ResultPage = () => {
     useEffect(() => {
         const fetchVideo = async () => {
             try {
-                const response = await fetch(`http://127.0.0.1:5174/video/${state.video_url}`, {
+                // Сначала попробуем получить ссылку без редиректа
+                const response = await fetch(`http://127.0.0.1:5174/video/${state.video_url}/url`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -22,15 +23,36 @@ const ResultPage = () => {
 
                 if (response.ok) {
                     const data = await response.json();
-                    setVideoUrl(data.url);
+                    if (data && data.url) {
+                        console.log("Получен URL видео:", data.url);
+                        setVideoUrl(data.url);
+                        return;
+                    }
+                }
+                
+                // Если первый метод не сработал, пробуем через обычный эндпоинт
+                const fallbackResponse = await fetch(`http://127.0.0.1:5174/video/${state.video_url}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (fallbackResponse.ok) {
+                    const data = await fallbackResponse.json();
+                    if (data && data.url) {
+                        console.log("Получен URL видео через запасной метод:", data.url);
+                        setVideoUrl(data.url);
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching video:', error);
             }
         };
 
-        fetchVideo();
-    }, [state.video_url, token]);
+        if (state && state.video_url) {
+            fetchVideo();
+        }
+    }, [state?.video_url, token]);
 
     const handleDownload = async () => {
         if (videoUrl) {
@@ -95,7 +117,7 @@ const ResultPage = () => {
                     <h2>Detection Log</h2>
                     <div className="detection-results">
                         <DetectionResults
-                            frameObjects={state.frame_objects}
+                            frameObjects={state?.frame_objects || []}
                             onFrameClick={handleFrameSeek}
                             currentFrame={currentFrame}
                         />

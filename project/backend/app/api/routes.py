@@ -8,10 +8,11 @@ import tempfile
 import logging
 import uuid
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.services.video_processing import video_processing
 from app.services.minio import MinioStorage
 from app.services.database import DatabaseManager
+from minio import Minio
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -237,8 +238,11 @@ def serve_video(filename):
         
         logger.info(f"Запрошено видео: {filename}")
         video_url = storage.get_presigned_url(filename)
+        logger.info(f"Получена временная ссылка из MinIO для {video_url}")
         if video_url:
             logger.info(f"Получена временная ссылка из MinIO для {filename}")
+            
+            print(video_url)
            
             return redirect(video_url) if request.args.get('direct') else jsonify({"url": video_url}), 200
         else:
@@ -264,11 +268,31 @@ def get_video_url(filename):
 
     try:
         expires = int(request.args.get('expires', 7))
-        video_url = storage.get_presigned_url(filename, expires)
-        if video_url:
-            return jsonify({"url": video_url, "expires_in": expires}), 200
-        else:
+        
+        # Проверяем существование объекта с помощью основного клиента
+        if not storage.object_exists(storage.video_bucket, filename):
             return jsonify({"error": "Video not found"}), 404
+        
+        # Создаем временный клиент для генерации ссылки с внешним хостом
+        external_host = os.environ.get('EXTERNAL_HOST', 'localhost')
+        external_port = int(os.environ.get('EXTERNAL_PORT', '9000'))
+        external_client = Minio(
+            endpoint=f"{external_host}:{external_port}",
+            access_key=storage.access_key,
+            secret_key=storage.secret_key,
+            secure=storage.secure,
+            region=storage.region
+        )
+        
+        video_url = external_client.presigned_get_object(
+            bucket_name=storage.video_bucket,
+            object_name=filename,
+            expires=timedelta(days=expires)
+        )
+        
+        logger.info(f"Получена временная ссылка из MinIO для {video_url}")
+        return jsonify({"url": video_url, "expires_in": expires}), 200
+        
     except Exception as e:
         logger.error(f"Ошибка при получении URL видео: {str(e)}")
         return jsonify({"error": str(e)}), 500
