@@ -17,11 +17,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY requirements.txt .
 
 # Установка зависимостей с увеличенным таймаутом и повторными попытками
-RUN pip install --no-cache-dir --timeout 10 \
-    --retries 10 \
-    --no-color \
-    --trusted-host pypi.org \
-    --trusted-host files.pythonhosted.org \
+RUN pip install --no-cache-dir \
     -r requirements.txt 
 
 # Копирование остальных файлов проекта

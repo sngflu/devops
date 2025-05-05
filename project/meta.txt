@@ -1,0 +1,25 @@
+#cloud-config
+users:
+  - name: terra
+    groups: sudo
+    shell: /bin/bash
+    sudo: 'ALL=(ALL) NOPASSWD:ALL'
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCZD9iKDiogf34mydmArPTqAG0Mqc0IAHFpQtPN/5VJGzZShde0mPVQcm/adS55bBUwX+rG/cWSRYWcWN7O1/D1enHyFfFWJgg635HDJ2aXrJuAYSq1cCAWz0st7hvI610hWx3QfSoKVKImjVo2QlLTUm2RXSavghDbYzeap8fitojgR1HlUCnqHiF8ia8vRv6ggJfLBcN/PWYKcII+HpnJyoasX5BAFzckiUcIJXzj9qPirrp5PyfBP1vuwryMIHK8zCgThlSHGRt6ILalJt5y5lFSJCjgPaK05OSTlCHvne5194KBCOqKtpuOQKmi64cegWTFf2J2VxVuc2jimF5WvVZGgbjJ+QLLMmGf2qYcKF32RedEG2Q4ET6lpKxshyhRDnbunlBpptcD5cp80Q1mMyg4MU7ODSuxheqzTZ6+9aB0hLAy5Ls8CnuJM9Dqir/JGaZVNe88DxanesN0Wu4yqo7pDGGbAzY7ZdbSNGRIuNmZIt9+jozs8dbquhal8B3QTeozRk+lkyg+ZGMrd6k66DkCecVnHpcqaYsbkDC+Cd8aG061rZfDQAxWQ84zyBYHwqhgBGsGQQBo7IMjgCBA3OqT4l/yHiMVYmWlgK/K2iZznnSC6TIkiwlfAJLdJSTph57CL4uQ5aZQamHiLJNisrvlsJ9UQzgAOu8wYbmfzw== sngflu@laptop
+    password: $6$oCcSu9c7/wFZCHIu$mRcqqtn9nXzWk8jAfQ/4MstoQDG6BYqGmmOl83yd7edZrFWVy/IiDqO/leJyFIoszPJIotBI3pRAU56wFjVwd0
+
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+runcmd:
+  - systemctl enable docker
+  - systemctl start docker
+  - sed -i 's/^#\?PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart sshd
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-enable-password-auth.conf
+    permissions: '0644'
+    content: |
+      PasswordAuthentication yes

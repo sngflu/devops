@@ -77,7 +77,7 @@
   become: yes
 
 - name: Установка pip docker-compose plugin
-  pip:
+  apt:
     name: docker-compose
     state: present
   become: yes

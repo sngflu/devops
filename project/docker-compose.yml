@@ -13,7 +13,7 @@ services:
       - ./storage:/app/storage
     environment:
       - USE_MINIO=true
-      - MINIO_ENDPOINT=192.168.0.101:9000
+      - MINIO_ENDPOINT=192.168.10.3:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_SECURE=false
