@@ -12,10 +12,8 @@ services:
       - ./backend:/app
       - ./storage:/app/storage
     environment:
-      - USE_MINIO=true
-      - MINIO_ENDPOINT=minio:9000
-      - EXTERNAL_HOST=192.168.0.101
-      - EXTERNAL_PORT=9000
+      - USE_MINIO=true   
+      - MINIO_ENDPOINT=192.168.1.143:9000         
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_SECURE=false

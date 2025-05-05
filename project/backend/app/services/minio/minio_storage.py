@@ -370,6 +370,7 @@ class MinioStorage:
             try:
                 self.client.stat_object(
                     bucket_name=self.video_bucket,
+                    
                     object_name=object_name
                 )
             except Exception as e:
