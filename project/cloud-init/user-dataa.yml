@@ -1,0 +1,20 @@
+#cloud-config
+hostname: docker-host
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0WGP1EZykEtv5YGC9nMiPFW3U3DmZNzKFO5nEu6uozEHh4jLZzPNHSrfFTuQ2GnRDSt+XbOtTLdcj26+iPNiFoFha42aCIzYjt6V8Z+SQ9pzF4jPPzxwXfDdkEWylgoNnZ+4MG1lNFqa8aO5yKBVqqZLpzC94EyA8vf8jseTcf+kZ4+i7ztEwmUqh6tUZXBhRBF9Yzo+xQW4eyxRJLOC7DQ5rnUMaiBvpkIKyVVAEheCwWjHfbnXJwUyWxhwkOlSDlc6NSX8W8kE/b7DR+j1Cv8yZVv8fTozX57PJO8x4uJItkb59//5gGYGOm8ALFQQX0bd6pGFbDlvlm1rl ubuntu
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - openssh-server
+  - python3
+  - python3-pip
+
+runcmd:
+  - systemctl enable ssh
+  - systemctl start ssh

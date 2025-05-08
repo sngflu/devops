@@ -1,0 +1,12 @@
+{
+  "name": "devops",
+  "version": "1.0.0",
+  "scripts": {
+    "start-front": "cd frontend && npm run dev",
+    "start-back": "cd backend && python main.py",
+    "start": "concurrently \"npm run start-front\" \"npm run start-back\""
+  },
+  "devDependencies": {
+    "concurrently": "^7.1.0"
+  }
+}

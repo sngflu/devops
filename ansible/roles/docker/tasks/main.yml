@@ -1,0 +1,50 @@
+---
+- name: Установка зависимостей для Docker
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - software-properties-common
+    state: present
+    update_cache: yes
+
+- name: Добавление Docker GPG ключа
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Определение релиза Ubuntu
+  shell: lsb_release -cs
+  register: ubuntu_release
+  changed_when: false
+
+- name: Добавление Docker репозитория
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ubuntu_release.stdout }} stable
+    state: present
+
+- name: Установка Docker
+  apt:
+    name: docker-ce
+    state: present
+    update_cache: yes
+
+- name: Установка pip3
+  apt:
+    name: python3-pip
+    state: present
+    update_cache: yes
+
+- name: Установка python-docker
+  pip:
+    name: docker
+    state: present
+
+- name: Добавление пользователя в группу docker
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  notify: restart docker 

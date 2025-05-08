@@ -1,0 +1,28 @@
+---
+- name: Проверка доступа к серверу
+  ping:
+  register: ping_result
+
+- name: Установка Docker и необходимых пакетов
+  apt:
+    name:
+      - docker.io
+      - docker-compose
+      - python3-pip
+      - python3-dev
+      - libffi-dev
+      - libssl-dev
+    state: present
+    update_cache: yes
+
+- name: Добавление пользователя ubuntu в группу docker
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: Включение и запуск сервиса Docker
+  systemd:
+    name: docker
+    state: started
+    enabled: yes

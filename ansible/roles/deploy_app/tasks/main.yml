@@ -1,0 +1,135 @@
+---
+- name: Создание директории для проекта
+  file:
+    path: /opt/myproject
+    state: directory
+    mode: "0755"
+
+- name: Копирование проекта на ВМ
+  synchronize:
+    src: /home/sngflu/IT/devops/project/
+    dest: /opt/myproject/
+    delete: yes
+    rsync_opts:
+      - "--exclude=.git"
+
+- name: Проверка существования контейнеров через docker-compose
+  shell: "cd /opt/myproject && docker-compose ps -q"
+  register: compose_containers
+  ignore_errors: yes
+  changed_when: false
+
+- name: Вывод информации о существующих контейнерах
+  debug:
+    var: compose_containers
+    verbosity: 1
+
+- name: Остановка и удаление контейнеров, если они существуют
+  shell: "cd /opt/myproject && docker-compose down --volumes --remove-orphans"
+  when: compose_containers.stdout_lines | length > 0
+
+- name: Удаление старых образов
+  shell: "cd /opt/myproject && docker-compose down --rmi all"
+  when: compose_containers.stdout_lines | length > 0
+
+- name: Проверка наличия docker-compose.yml
+  stat:
+    path: /opt/myproject/docker-compose.yml
+  register: compose_file
+
+- name: Убедиться, что файл docker-compose.yml существует
+  assert:
+    that:
+      - "compose_file.stat.exists"
+    fail_msg: "Файл docker-compose.yml не найден в директории проекта"
+    success_msg: "Файл docker-compose.yml успешно найден"
+
+- name: Установка expect и unbuffer
+  apt:
+    name: expect
+    state: present
+  become: yes
+
+- name: Создание скрипта сборки на целевой машине с выводом в реальном времени
+  copy:
+    dest: /opt/myproject/build.sh
+    content: |
+      #!/bin/bash
+
+      # Отключаем буферизацию вывода
+      export PYTHONUNBUFFERED=1
+
+      echo "=== Начинаем сборку Docker-образов ==="
+      cd /opt/myproject
+
+      # Используем stdbuf для отключения буферизации
+      stdbuf -o0 docker-compose build --no-cache --progress=plain
+
+      echo "=== Сборка Docker-образов успешно завершена ==="
+
+      exit 0
+    mode: "0755"
+
+- name: Запуск скрипта сборки Docker в режиме реального времени
+  shell: "cd /opt/myproject && ./build.sh"
+  register: build_script_result
+  # Используем pty для эмуляции интерактивной сессии
+  args:
+    executable: /bin/bash
+
+- name: Вывод результатов выполнения скрипта сборки
+  debug:
+    msg: "{{ build_script_result.stdout_lines }}"
+
+- name: Проверка успешности выполнения скрипта сборки
+  assert:
+    that:
+      - "build_script_result.rc == 0"
+    fail_msg: "Не удалось собрать Docker-образы. Ошибка скрипта сборки."
+    success_msg: "Docker-образы успешно собраны через скрипт"
+
+- name: Запуск docker-compose
+  shell: "cd /opt/myproject && docker-compose up -d"
+  register: compose_up_result
+
+- name: Вывод информации о запуске docker-compose
+  debug:
+    var: compose_up_result
+    verbosity: 1
+
+- name: Проверка успешности запуска docker-compose
+  assert:
+    that:
+      - "compose_up_result.rc == 0"
+    fail_msg: "Не удалось запустить docker-compose"
+    success_msg: "Docker-compose успешно запущен"
+
+- name: Ожидание инициализации контейнеров (5 секунд)
+  pause:
+    seconds: 5
+
+- name: Проверка состояния контейнеров
+  shell: "cd /opt/myproject && docker-compose ps"
+  register: compose_ps_result
+
+- name: Вывод информации о состоянии контейнеров
+  debug:
+    msg: "{{ compose_ps_result.stdout_lines }}"
+
+- name: Получение списка запущенных контейнеров
+  shell: "cd /opt/myproject && docker-compose ps -q"
+  register: running_containers
+
+- name: Сбор логов запущенных контейнеров
+  shell: "docker logs {{ item }}"
+  loop: "{{ running_containers.stdout_lines }}"
+  register: container_logs
+  when: running_containers.stdout_lines | length > 0
+
+- name: Вывод логов контейнеров
+  debug:
+    msg:
+      - "Логи контейнера {{ item.item }}:"
+      - "{{ item.stdout_lines }}"
+  loop: "{{ container_logs.results }}"
+  when: running_containers.stdout_lines | length > 0

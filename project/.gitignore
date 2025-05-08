@@ -14,23 +14,6 @@ storage/
 .cursor/
 node_modules/
 
-
-__pychache__/
-storage/
-*.pyc
-
-# Игнорировать все видеофайлы
-*.mp4
-*.avi 
-
-*.log
-*.pid
-
-
-# Игнорировать файлы Cursor
-.cursor/
-node_modules/
-
 # Terraform
 .terraform/
 *.tfstate
@@ -41,5 +24,6 @@ terraform.tfvars
 # Локальные файлы конфигурации
 .env
 
-.iso
-.img
+# Образы дисков
+*.iso
+*.img

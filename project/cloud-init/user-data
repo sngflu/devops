@@ -1,0 +1,79 @@
+#cloud-config
+hostname: docker-host
+fqdn: docker-host.local
+
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    lock_passwd: false
+    # Password is 'ubuntu'
+    passwd: $6$NMlawbmy7G7DhYsh$BNjj0YdvB07M1mN3FKxkAVLszBM2s6qCwS35UUcMHVv4DHhS8bh8NFCfHjsJ3mwuEfIlQYMh9jRdSEV6w2UKn/
+
+# Enable password authentication for SSH
+ssh_pwauth: true
+
+# Don't install packages during first boot, we'll do it in runcmd
+package_update: false
+package_upgrade: false
+
+# Minimal packages for SSH and Python
+packages:
+  - openssh-server
+  - python3
+
+write_files:
+  - path: /etc/apt/apt.conf.d/90wait
+    content: |
+      APT::Get::Update::InteractiveMode "false";
+      APT::Get::Install::InteractiveMode "false";
+  - path: /etc/ssh/sshd_config.d/allow_password_auth.conf
+    content: |
+      PasswordAuthentication yes
+      ChallengeResponseAuthentication no
+  - path: /etc/systemd/resolved.conf
+    content: |
+      [Resolve]
+      DNS=8.8.8.8 8.8.4.4
+      FallbackDNS=1.1.1.1 9.9.9.9
+      #Domains=
+      #LLMNR=no
+      #MulticastDNS=no
+      #DNSSEC=no
+      #DNSOverTLS=no
+      #Cache=no-negative
+      #DNSStubListener=yes
+      #ReadEtcHosts=yes
+
+runcmd:
+  # Для уверенности, что мы не прерываем установку пакетов
+  - systemctl mask apt-daily.service apt-daily-upgrade.service
+  - systemctl stop unattended-upgrades.service || true
+  - systemctl mask unattended-upgrades.service
+  
+  # Установка дополнительных пакетов
+  - apt-get update
+  - apt-get install -y python3-pip avahi-daemon apt-transport-https ca-certificates curl software-properties-common
+
+  # Установка Docker отдельно
+  - apt-get install -y docker.io docker-compose
+  
+  # Restart systemd-resolved to apply DNS changes
+  - systemctl restart systemd-resolved
+  
+  # Configure Docker
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -aG docker ubuntu
+  
+  # Restart SSH with new configuration
+  - systemctl restart sshd
+  
+  # Create a file to signal that setup is complete
+  - touch /var/lib/cloud/instance/setup-complete
+  
+  # Create a file to indicate apt process completion
+  - touch /var/lib/cloud/instance/apt-complete
+
+final_message: "The system is finally up, after $UPTIME seconds"
