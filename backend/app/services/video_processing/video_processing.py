@@ -41,7 +41,7 @@ def convert_avi_to_mp4(input_file, output_file):
         return False
 
 
-def process_video(filename, confidence_threshold=0.25, username=None):
+def process_video(filename, confidence_threshold=0.25, username=None, vid_stride=16):
     logger.info(f"Начало обработки видео: {filename}, пользователь: {username}")
 
     try:
@@ -65,10 +65,15 @@ def process_video(filename, confidence_threshold=0.25, username=None):
             f"Параметры видео: {total_frames} кадров, {fps} FPS, разрешение {width}x{height}"
         )
 
+        # Очистка папки runs перед запуском модели
+        if os.path.exists("runs"):
+            logger.info("Очистка директории 'runs' перед запуском модели")
+            shutil.rmtree("runs")
+
         logger.info(
-            f"Запуск модели обнаружения с порогом уверенности {confidence_threshold}"
+            f"Запуск модели обнаружения с порогом уверенности {confidence_threshold} и размером пакета {vid_stride}"
         )
-        results = model.model(source=filename, save=True, conf=confidence_threshold)
+        results = model.model(source=filename, save=True, conf=confidence_threshold, vid_stride=vid_stride, batch=16)
 
         frame_objects = []
         total_weapons = 0
