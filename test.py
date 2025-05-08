@@ -54,10 +54,9 @@ class MinioStorage:
         access_key=os.environ.get('MINIO_ACCESS_KEY', 'minioadmin'),
         secret_key=os.environ.get('MINIO_SECRET_KEY', 'minioadmin'),
         secure=os.environ.get('MINIO_SECURE', 'false').lower() == 'true',
-        external_endpoint=os.environ.get('MINIO_EXTERNAL_ENDPOINT', None),
         video_bucket='videos',
         log_bucket='logs',
-        region=None,
+        region=None
     ):
         self.endpoint = endpoint
         self.access_key = access_key
@@ -66,7 +65,6 @@ class MinioStorage:
         self.video_bucket = video_bucket
         self.log_bucket = log_bucket
         self.region = region
-        self.external_endpoint = external_endpoint
         self.client = None
         logger.info(f"Инициализация MinioStorage с параметрами: endpoint={endpoint}, secure={secure}, region={region}")
         self.connect()
@@ -84,11 +82,6 @@ class MinioStorage:
             )
             
             self._ensure_buckets_exist()
-
-            self.link_client = Minio(self.external_endpoint,
-                                 access_key=self.access_key,
-                                 secret_key=self.secret_key,
-                                 secure=False)
             
             logger.info("Соединение с MinIO установлено успешно")
             return True
@@ -361,7 +354,15 @@ class MinioStorage:
             
     @retry_s3_operation()
     def get_presigned_url(self, object_name, expires=7):
-        """Создание временной ссылки на видео в Minio"""
+        """Создание временной ссылки на видео в Minio
+        
+        Args:
+            object_name (str): Имя объекта в Minio
+            expires (int, optional): Время жизни ссылки в днях
+            
+        Returns:
+            str or None: URL или None в случае ошибки
+        """
         logger.info(f"Создание временной ссылки для {object_name} со сроком действия {expires} дней")
         try:
             self.ensure_connection()
@@ -369,18 +370,18 @@ class MinioStorage:
             try:
                 self.client.stat_object(
                     bucket_name=self.video_bucket,
+                    
                     object_name=object_name
                 )
             except Exception as e:
                 logger.warning(f"Объект {object_name} не найден в бакете {self.video_bucket}: {e}")
                 return None
             
-            url = self.link_client.presigned_get_object(
+            url = self.client.presigned_get_object(
                 bucket_name=self.video_bucket,
                 object_name=object_name,
                 expires=timedelta(days=expires)
             )
-            
             
             logger.info(f"Временная ссылка для {object_name} успешно создана")
             logger.debug(f"URL: {url}")
@@ -449,3 +450,14 @@ class MinioStorage:
         except S3Error as e:
             logger.error(f"Ошибка получения списка видео: {e}")
             return []
+        
+
+if __name__ == "__main__":
+    storage = MinioStorage()
+
+    print(storage.endpoint)
+    print(storage.list_user_videos("r"))
+    video_url = storage.get_presigned_url('r_20250508_114647_temp_video_20250508114615_r.mp4')
+    from flask import Blueprint, request, jsonify, send_from_directory, redirect
+
+    print(video_url)

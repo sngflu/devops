@@ -13,10 +13,11 @@ services:
       - ./storage:/app/storage
     environment:
       - USE_MINIO=true   
-      - MINIO_ENDPOINT=192.168.1.143:9000         
+      - MINIO_ENDPOINT=minio:9000         
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_SECURE=false
+      - MINIO_EXTERNAL_ENDPOINT=192.168.0.102:9001 #192.168.0.102:9000 your computer ip
       - MODEL_PATH=/app/app/utils/yolov8nv2_e200_bs16.pt
     ports:
       - "5174:5174"
@@ -104,6 +105,8 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_SERVER_URL:     http://localhost:9000
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
     volumes:
       - minio_data:/data
     ports:

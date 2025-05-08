@@ -32,6 +32,7 @@ with open(os.path.join(CONFIG_DIR, "secret.json")) as f:
 
 storage = MinioStorage()
 
+
 db_manager = DatabaseManager()
 db_manager.init_database()
 
@@ -240,7 +241,7 @@ def serve_video(filename):
         if video_url:
             logger.info(f"Получена временная ссылка из MinIO для {filename}")
            
-            return redirect(video_url) if request.args.get('direct') else jsonify({"url": video_url}), 200
+            return jsonify({"url": video_url}), 200 #redirect(video_url) if request.args.get('direct') else jsonify({"url": video_url}), 200
         else:
             logger.error(f"Не удалось получить временную ссылку из MinIO для {filename}")
             return jsonify({"error": "Video not found"}), 404
