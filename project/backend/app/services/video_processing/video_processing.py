@@ -68,7 +68,7 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         logger.info(
             f"Запуск модели обнаружения с порогом уверенности {confidence_threshold}"
         )
-        results = model.model(source=filename, save=True, conf=confidence_threshold)
+        results = model.model(source=filename, save=True, conf=confidence_threshold, batch=16, vid_stride=16)
 
         frame_objects = []
         total_weapons = 0
