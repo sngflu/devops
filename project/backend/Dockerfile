@@ -16,9 +16,8 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 # Копирование только requirements.txt для использования кэширования слоев Docker
 COPY requirements.txt .
 
-# Установка зависимостей с увеличенным таймаутом и повторными попытками
-RUN pip install --no-cache-dir \
-    -r requirements.txt 
+# Установка зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Копирование остальных файлов проекта
 COPY . .

@@ -4,9 +4,11 @@ import cv2
 import os
 import shutil
 import logging
+import time
 from app.models import model
 from app.services.minio import MinioStorage
 import tempfile
+from prometheus_client import Counter, Histogram, Gauge
 
 
 # Настройка логирования
@@ -21,8 +23,49 @@ logger.setLevel(logging.INFO)
 video_directory = "runs/detect/predict/"
 storage = MinioStorage()
 
+# --- Определения метрик Prometheus для video_processing.py ---
+video_processing_time_seconds = Histogram(
+    'video_processing_time_seconds',
+    'Time spent processing a video file',
+    ['status'] # 'success' или 'error'
+)
+
+video_conversion_time_seconds = Histogram(
+    'video_conversion_time_seconds',
+    'Time spent converting video from AVI to MP4'
+)
+
+model_inference_time_seconds = Histogram(
+    'model_inference_time_seconds',
+    'Time spent on model inference for a video'
+)
+
+video_processing_errors_total = Counter(
+    'video_processing_errors_total',
+    'Total errors during video processing',
+    ['error_type']
+)
+
+# Можно использовать Gauge для последнего обработанного разрешения или Info для общей информации
+# Для примера используем Gauge, предполагая, что это может быть полезно для мониторинга типичных разрешений
+# processed_video_resolution_pixels = Gauge(
+#     'processed_video_resolution_pixels',
+#     'Resolution (width*height) of the last processed video' 
+# ) 
+# Альтернатива: Гистограмма по количеству пикселей, если важнее распределение
+processed_video_pixels_histogram = Histogram(
+    'processed_video_pixels_histogram',
+    'Distribution of processed video resolutions in total pixels (width*height)'
+)
+
+detected_objects_total = Counter(
+    'detected_objects_total',
+    'Total detected objects of specific types',
+    ['object_type'] # e.g., 'weapon', 'knife'
+)
 
 def convert_avi_to_mp4(input_file, output_file):
+    start_time = time.time()
     try:
         logger.info(f"Конвертация AVI в MP4: {input_file} -> {output_file}")
         video = VideoFileClip(input_file)
@@ -35,24 +78,35 @@ def convert_avi_to_mp4(input_file, output_file):
         )
         video.close()
         logger.info("Конвертация успешно завершена")
+        end_time = time.time()
+        video_conversion_time_seconds.observe(end_time - start_time)
         return True
     except Exception as e:
         logger.error(f"Ошибка при конвертации видео: {e}")
+        video_processing_errors_total.labels(error_type='conversion_failed').inc()
+        # Также можно залогировать время до ошибки, если это полезно
+        # end_time = time.time()
+        # video_conversion_time_seconds.observe(end_time - start_time) # Опционально
         return False
 
 
 def process_video(filename, confidence_threshold=0.25, username=None):
     logger.info(f"Начало обработки видео: {filename}, пользователь: {username}")
-
+    
+    # Начинаем измерение общего времени обработки
+    start_time = time.time()
+    
     try:
         # Проверяем, что файл существует и доступен для чтения
         if not os.path.exists(filename):
             logger.error(f"Файл не найден: {filename}")
+            video_processing_errors_total.labels(error_type='file_not_found').inc()
             raise FileNotFoundError(f"Видеофайл не найден: {filename}")
 
         cap = cv2.VideoCapture(filename)
         if not cap.isOpened():
             logger.error(f"Не удалось открыть видеофайл: {filename}")
+            video_processing_errors_total.labels(error_type='file_open_failed').inc()
             raise ValueError("Не удалось открыть видеофайл. Проверьте формат файла.")
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -61,6 +115,10 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         cap.release()
 
+        # Записываем разрешение видео в гистограмму
+        pixel_count = width * height
+        processed_video_pixels_histogram.observe(pixel_count)
+
         logger.info(
             f"Параметры видео: {total_frames} кадров, {fps} FPS, разрешение {width}x{height}"
         )
@@ -68,7 +126,11 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         logger.info(
             f"Запуск модели обнаружения с порогом уверенности {confidence_threshold}"
         )
+        # Измеряем время инференса модели
+        model_start_time = time.time()
         results = model.model(source=filename, save=True, conf=confidence_threshold, batch=16, vid_stride=16)
+        model_end_time = time.time()
+        model_inference_time_seconds.observe(model_end_time - model_start_time)
 
         frame_objects = []
         total_weapons = 0
@@ -90,6 +152,12 @@ def process_video(filename, confidence_threshold=0.25, username=None):
                     total_knives += 1
                     has_weapon_or_knife = True
             frame_objects.append((i, has_weapon, has_knife))
+
+        # Инкрементируем счетчики обнаруженных объектов
+        if total_weapons > 0:
+            detected_objects_total.labels(object_type='weapon').inc(total_weapons)
+        if total_knives > 0:
+            detected_objects_total.labels(object_type='knife').inc(total_knives)
 
         logger.info(
             f"Обнаружено объектов: {total_weapons} оружия, {total_knives} ножей"
@@ -205,6 +273,11 @@ def process_video(filename, confidence_threshold=0.25, username=None):
             logger.debug(f"Временный файл удален: {final_video_path}")
 
         logger.info(f"Обработка видео успешно завершена: {new_filename}")
+        
+        # Завершаем измерение общего времени обработки
+        end_time = time.time()
+        video_processing_time_seconds.labels(status='success').observe(end_time - start_time)
+        
         return new_filename, frame_objects, fps, has_weapon_or_knife, log_filename
 
     except Exception as e:
@@ -212,4 +285,12 @@ def process_video(filename, confidence_threshold=0.25, username=None):
         import traceback
 
         logger.error(traceback.format_exc())
+        
+        # Завершаем измерение общего времени обработки в случае ошибки
+        end_time = time.time()
+        video_processing_time_seconds.labels(status='error').observe(end_time - start_time)
+        
+        # Инкрементируем счетчик ошибок с типом 'general_error'
+        video_processing_errors_total.labels(error_type='general_error').inc()
+        
         raise
