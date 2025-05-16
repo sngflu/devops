@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useRef, useState } from 'react'
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 import './mainPage.css';
 import robot from '../../assets/robot.png';
 import cctv from '../../assets/cctv.png';
@@ -32,7 +32,7 @@ const MainPage = () => {
         try {
             setIsLoading(true);
             const token = localStorage.getItem('token');
-            const response = await axios.post('http://127.0.0.1:5174/predict',
+            const response = await axiosInstance.post('/predict',
                 formData,
                 {
                     headers: {

@@ -3,11 +3,14 @@ kind: Service
 metadata:
   name: backend
   namespace: app-namespace
+  labels:
+    app: backend
 spec:
+  type: NodePort
   selector:
     app: backend
   ports:
-  - port: 5174
-    targetPort: 5174
-    nodePort: 30174
-  type: NodePort 
+    - name: http
+      port: 5174
+      targetPort: 5174
+      protocol: TCP

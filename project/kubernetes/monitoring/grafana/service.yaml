@@ -2,11 +2,14 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: app-namespace
-spec:
-  selector:
+  labels:
     app: grafana
+spec:
   ports:
   - port: 3000
     targetPort: 3000
-  type: ClusterIP 
+    protocol: TCP
+    name: http
+  selector:
+    app: grafana
+  type: NodePort 

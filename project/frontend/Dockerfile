@@ -1,20 +1,27 @@
-FROM node:18
+# Этап 1: Сборка
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Сначала копируем только файлы, необходимые для установки зависимостей
 COPY package*.json ./
-
-# Устанавливаем зависимости с кэшированием
 RUN npm ci
-# Явно устанавливаем корректную версию vite
-RUN npm install vite@5.1.4 --save-dev
 
-# Затем копируем остальные файлы проекта
-COPY . ./
+COPY . .
 
-# Открываем порт
-EXPOSE 5173
+RUN npm run build
 
-# Запускаем через npm script вместо прямого вызова бинарника
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Этап 2: Отдача статики
+FROM nginx:alpine
+
+# Удалим дефолтную страницу nginx
+RUN rm -rf /usr/share/nginx/html/*
+
+# Копируем собранную статику
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Настройка nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

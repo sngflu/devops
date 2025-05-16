@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-    baseURL: 'http://127.0.0.1:5174'
+    baseURL: import.meta.env.VITE_API_URL || 'http://api.51.250.74.197.nip.io'
 });
 
 axiosInstance.interceptors.request.use(

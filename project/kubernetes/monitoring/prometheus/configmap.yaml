@@ -10,6 +10,29 @@ data:
       evaluation_interval: 15s
 
     scrape_configs:
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+        - role: endpoints
+          scheme: https
+          tls_config:
+            ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: default;kubernetes;https
+
+      - job_name: 'kubernetes-nodes'
+        kubernetes_sd_configs:
+        - role: node
+          scheme: https
+          tls_config:
+            ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
         - role: pod
@@ -36,9 +59,27 @@ data:
           target_label: kubernetes_pod_name
 
       - job_name: 'backend'
-        static_configs:
-        - targets: ['backend:5174']
+        kubernetes_sd_configs:
+        - role: endpoints
+          namespaces:
+            names:
+            - app-namespace
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_service_label_app]
+          regex: backend
+          action: keep
+        - source_labels: [__meta_kubernetes_endpoint_port_name]
+          regex: http
+          action: keep
+        - source_labels: [__meta_kubernetes_namespace]
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          target_label: kubernetes_pod_name
+        - source_labels: [__meta_kubernetes_service_name]
+          target_label: service
       
       - job_name: 'frontend'
         static_configs:
         - targets: ['frontend:5173'] 
+          labels:
+            component: frontend 

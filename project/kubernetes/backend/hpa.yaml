@@ -9,14 +9,14 @@ spec:
     kind: Deployment
     name: backend
   minReplicas: 1
-  maxReplicas: 10
+  maxReplicas: 2
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 15  # 15% нагрузки на ЦП - порог для масштабирования
+        averageUtilization: 90  # 15% нагрузки на ЦП - порог для масштабирования
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60  # Ждать 1 минуту перед увеличением реплик

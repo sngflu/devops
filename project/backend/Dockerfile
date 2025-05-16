@@ -24,4 +24,4 @@ COPY . .
 
 EXPOSE 5174
 
-CMD ["python", "wsgi.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5174", "wsgi:app"]

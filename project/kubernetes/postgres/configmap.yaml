@@ -4,7 +4,7 @@ metadata:
   name: postgres-init-configmap
   namespace: app-namespace
 data:
-  init.sql: |
+  01-init-schema.sql: |
     -- Создание расширения для использования UUID
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -73,4 +73,4 @@ data:
 
     -- Добавляем обычного пользователя (user/user123)
     INSERT INTO users (username, password_hash, role)
-    VALUES ('user', '$2a$10$Cy7FS7Z8CSKs0gWEkY4MuO0LDl.NlL3AYqEHtFhRzQCJXwqXRp9xK', 'user'); 
+    VALUES ('user', '$2a$10$Cy7FS7Z8CSKs0gWEkY4MuO0LDl.NlL3AYqEHtFhRzQCJXwqXRp9xK', 'user');

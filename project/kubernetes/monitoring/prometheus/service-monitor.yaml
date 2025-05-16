@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-service-monitor
+  namespace: app-namespace
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+  - port: http  # Порт должен совпадать с названием порта в service.yaml
+    path: /metrics
+    interval: 10s
+    scrapeTimeout: 5s
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: request_latency_seconds.*|api_response_size_bytes.*|api_errors_total.*|login_attempts_total.*|detected_objects_total.*|video_.*
+      action: keep
+  namespaceSelector:
+    matchNames:
+    - app-namespace 

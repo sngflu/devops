@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-hpa
+  namespace: app-namespace
+  labels:
+    grafana_dashboard: "1"
+data:
+  backend-hpa-monitor.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": "-- Grafana --",
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "links": [],
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "description": "Текущее количество реплик подов бэкенда",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 3
+                  },
+                  {
+                    "color": "orange",
+                    "value": 4
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "unit": "none"
+            }
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 0
+          },
+          "id": 2,
+          "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "text": {}
+          },
+          "pluginVersion": "7.5.5",
+          "targets": [
+            {
+              "expr": "kube_deployment_status_replicas{deployment=\"backend\", namespace=\"app-namespace\"}",
+              "interval": "",
+              "legendFormat": "Текущие реплики",
+              "refId": "A"
+            },
+            {
+              "expr": "kube_deployment_spec_replicas{deployment=\"backend\", namespace=\"app-namespace\"}",
+              "interval": "",
+              "legendFormat": "Желаемые реплики",
+              "refId": "B"
+            }
+          ],
+          "title": "Количество реплик подов бэкенда",
+          "type": "bargauge"
+        },
+        {
+          "datasource": "Prometheus",
+          "description": "Загрузка CPU подов бэкенда, которую отслеживает HPA",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 10
+                  },
+                  {
+                    "color": "orange",
+                    "value": 14
+                  },
+                  {
+                    "color": "red",
+                    "value": 15
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              },
+              "unit": "percent"
+            }
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 0
+          },
+          "id": 4,
+          "options": {
+            "displayMode": "gauge",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "showThresholdLabels": true,
+            "showThresholdMarkers": true
+          },
+          "pluginVersion": "7.5.5",
+          "targets": [
+            {
+              "expr": "avg(rate(container_cpu_usage_seconds_total{namespace=\"app-namespace\", pod=~\"backend-.*\", container!=\"POD\"}[5m])) * 100",
+              "interval": "",
+              "legendFormat": "CPU %",
+              "refId": "A"
+            }
+          ],
+          "title": "Текущая загрузка CPU подов бэкенда",
+          "type": "gauge"
+        },
+        {
+          "datasource": "Prometheus",
+          "description": "Минимальное и максимальное количество реплик, настроенных в HPA",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            }
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 0
+          },
+          "id": 6,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "7.5.5",
+          "targets": [
+            {
+              "expr": "kube_horizontalpodautoscaler_spec_min_replicas{horizontalpodautoscaler=\"backend-hpa\", namespace=\"app-namespace\"}",
+              "interval": "",
+              "legendFormat": "Минимум реплик",
+              "refId": "A"
+            },
+            {
+              "expr": "kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=\"backend-hpa\", namespace=\"app-namespace\"}",
+              "interval": "",
+              "legendFormat": "Максимум реплик",
+              "refId": "B"
+            },
+            {
+              "expr": "kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler=\"backend-hpa\", namespace=\"app-namespace\"}",
+              "interval": "",
+              "legendFormat": "Текущее количество",
+              "refId": "C"
+            }
+          ],
+          "title": "Настройки масштабирования",
+          "type": "stat"
+        }
+      ],
+      "refresh": "10s",
+      "schemaVersion": 27,
+      "style": "dark",
+      "tags": ["kubernetes", "hpa", "autoscaling"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-30m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Мониторинг горизонтального автомасштабирования бэкенда",
+      "uid": "backend-hpa-monitor",
+      "version": 1
+    } 

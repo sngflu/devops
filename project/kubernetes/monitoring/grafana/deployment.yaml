@@ -2,7 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: app-namespace
+  labels:
+    app: grafana
 spec:
   replicas: 1
   selector:
@@ -15,46 +16,73 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: grafana/grafana:latest
+        image: grafana/grafana:8.5.3
         ports:
         - containerPort: 3000
-        env:
-        - name: GF_AUTH_ANONYMOUS_ENABLED
-          value: "true"
-        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
-          value: "Admin"
-        - name: GF_AUTH_BASIC_ENABLED
-          value: "false"
-        - name: GF_SERVER_ROOT_URL
-          value: "/grafana"
-        volumeMounts:
-        - name: grafana-storage
-          mountPath: /var/lib/grafana
-        - name: grafana-datasources
-          mountPath: /etc/grafana/provisioning/datasources
-          readOnly: true
-        - name: grafana-dashboards-providers
-          mountPath: /etc/grafana/provisioning/dashboards
-          readOnly: true
-        - name: grafana-dashboards
-          mountPath: /var/lib/grafana/dashboards
-          readOnly: true
+          name: http
         resources:
-          requests:
-            cpu: "100m"
-            memory: "256Mi"
           limits:
-            cpu: "300m"
-            memory: "512Mi"
+            memory: 512Mi
+            cpu: 500m
+          requests:
+            memory: 256Mi
+            cpu: 100m
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: admin
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: admin
+        - name: GF_DASHBOARDS_MIN_REFRESH_INTERVAL
+          value: 5s
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-kubernetes-app"
+        volumeMounts:
+        - name: grafana-data
+          mountPath: /var/lib/grafana
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: dashboards-config
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: dashboard-pod-requests
+          mountPath: /var/lib/grafana/dashboards/pod-requests-dashboard.json
+          subPath: pod-requests-dashboard.json
+        - name: dashboard-hpa
+          mountPath: /var/lib/grafana/dashboards/backend-hpa-monitor.json
+          subPath: backend-hpa-monitor.json
+        - name: dashboard-nodes
+          mountPath: /var/lib/grafana/dashboards/kubernetes-nodes-monitor.json
+          subPath: kubernetes-nodes-monitor.json
       volumes:
-      - name: grafana-storage
-        emptyDir: {}
-      - name: grafana-datasources
+      - name: grafana-data
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+      - name: grafana-config
         configMap:
-          name: grafana-datasources
-      - name: grafana-dashboards-providers
+          name: grafana-config
+      - name: dashboards-config
         configMap:
-          name: grafana-dashboards-providers
-      - name: grafana-dashboards
+          name: grafana-dashboards
+      - name: dashboard-pod-requests
         configMap:
-          name: grafana-dashboards 
+          name: grafana-dashboard-pod-requests
+      - name: dashboard-hpa
+        configMap:
+          name: grafana-dashboard-hpa
+      - name: dashboard-nodes
+        configMap:
+          name: grafana-dashboard-nodes
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-json
+  namespace: app-namespace
+  labels:
+    app: grafana
+data:
+  pod-requests-dashboard.json: |
+    $(cat /home/terra/devops/project/kubernetes/monitoring/grafana/pod-requests-dashboard.json)
+  backend-hpa-monitor.json: |
+    $(cat /home/terra/devops/project/kubernetes/monitoring/grafana/backend-hpa-monitor.json)
+  kubernetes-nodes-monitor.json: |
+    $(cat /home/terra/devops/project/kubernetes/monitoring/grafana/kubernetes-nodes-monitor.json) 
