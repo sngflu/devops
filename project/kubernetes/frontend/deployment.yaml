@@ -21,7 +21,7 @@ spec:
             - containerPort: 80
           env:
             - name: VITE_API_URL
-              value: "http://backend.app-namespace.svc.cluster.local:5174"
+              value: "http://api.51.250.74.197.nip.io"
           resources:
             requests:
               cpu: "100m"

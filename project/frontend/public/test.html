@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <script>
+        async function testRegister() {
+            const baseUrl = document.getElementById('baseUrl').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(`${baseUrl}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    document.getElementById('result').style.color = 'green';
+                } else {
+                    document.getElementById('result').style.color = 'red';
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = `Error: ${error.message}`;
+                document.getElementById('result').style.color = 'red';
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>API Test</h1>
+    
+    <div>
+        <label for="baseUrl">Base URL:</label>
+        <input type="text" id="baseUrl" value="http://51.250.74.197:30503" style="width: 300px;" />
+    </div>
+    
+    <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" value="testuser2" />
+    </div>
+    
+    <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" value="testpassword" />
+    </div>
+    
+    <button onclick="testRegister()">Test Register</button>
+    
+    <pre id="result" style="margin-top: 20px; padding: 10px; background-color: #f0f0f0;"></pre>
+</body>
+</html> 
