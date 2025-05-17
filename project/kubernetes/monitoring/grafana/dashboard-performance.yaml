@@ -11,37 +11,35 @@ data:
       "annotations": { "list": [] },
       "editable": true,
       "graphTooltip": 0,
+      "id": 100,
+      "uid": "basic-performance",
+      "version": 2,
       "panels": [
         {
-          "title": "HTTP запросы по подам",
+          "title": "HTTP запросы по методам и статусам",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
           "id": 1,
           "datasource": "Prometheus",
           "targets": [
             {
-              "expr": "sum(rate(http_requests_total[5m])) by (pod)",
-              "legendFormat": "{{pod}}",
+              "expr": "sum(flask_http_request_total) by (method, status)",
+              "legendFormat": "{{method}} - {{status}}",
               "refId": "A"
             }
           ]
         },
         {
-          "title": "Ошибки 4xx и 5xx",
+          "title": "Количество запросов по методам",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
           "id": 2,
           "datasource": "Prometheus",
           "targets": [
             {
-              "expr": "sum(rate(http_requests_total{status=~\"4..\"}[5m])) by (pod)",
-              "legendFormat": "{{pod}} - 4xx",
+              "expr": "sum(flask_http_request_total) by (method)",
+              "legendFormat": "{{method}}",
               "refId": "A"
-            },
-            {
-              "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (pod)",
-              "legendFormat": "{{pod}} - 5xx",
-              "refId": "B"
             }
           ]
         },
@@ -72,6 +70,109 @@ data:
               "refId": "A"
             }
           ]
+        },
+        {
+          "title": "Длительность запросов по путям",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+          "id": 5,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "flask_http_request_duration_seconds_sum / flask_http_request_duration_seconds_count",
+              "legendFormat": "{{method}} {{path}} ({{status}})",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Количество запросов по путям",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+          "id": 6,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "flask_http_request_duration_seconds_count",
+              "legendFormat": "{{method}} {{path}} ({{status}})",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Python GC - собранные объекты",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+          "id": 7,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "python_gc_objects_collected_total",
+              "legendFormat": "Generation {{generation}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Python GC - количество сборок мусора",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+          "id": 8,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "python_gc_collections_total",
+              "legendFormat": "Generation {{generation}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Использование оперативной памяти (backend)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 32, "w": 12, "h": 8 },
+          "id": 9,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "process_resident_memory_bytes",
+              "legendFormat": "Resident memory",
+              "refId": "A"
+            },
+            {
+              "expr": "process_virtual_memory_bytes",
+              "legendFormat": "Virtual memory",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "title": "Использование CPU (backend)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 32, "w": 12, "h": 8 },
+          "id": 10,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "process_cpu_seconds_total",
+              "legendFormat": "CPU usage",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Топ эндпоинтов по времени ответа",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 40, "w": 24, "h": 8 },
+          "id": 11,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "topk(5, flask_http_request_duration_seconds_sum / flask_http_request_duration_seconds_count)",
+              "legendFormat": "{{method}} {{path}} ({{status}})",
+              "refId": "A"
+            }
+          ]
         }
       ],
       "refresh": "5s",
@@ -81,7 +182,5 @@ data:
         "from": "now-1h",
         "to": "now"
       },
-      "title": "Минимальный мониторинг",
-      "uid": "basic-performance",
-      "version": 1
+      "title": "Мониторинг производительности"
     }

@@ -49,8 +49,7 @@ spec:
               subPath: performance-dashboard.json
       volumes:
         - name: grafana-data
-          persistentVolumeClaim:
-            claimName: grafana-pvc
+          emptyDir: {}
         - name: grafana-config
           configMap:
             name: grafana-datasources
