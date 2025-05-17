@@ -154,6 +154,48 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/api_monitoring.json
 
+  # SonarQube сервис
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    restart: always
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/sonar
+    ports:
+      - "9002:9000"  # 9002 внешний -> 9000 внутренний (web-интерфейс)
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - app-network
+    depends_on:
+      sonar-db:
+        condition: service_healthy
+
+  # Отдельная БД для SonarQube
+  sonar-db:
+    image: postgres:15-alpine
+    container_name: sonar-db
+    restart: always
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonar_db_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 networks:
   app-network:
     driver: bridge
@@ -164,3 +206,7 @@ volumes:
   minio_data:
   prometheus_data:
   grafana_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  sonar_db_data:

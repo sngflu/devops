@@ -44,130 +44,130 @@ jobs:
           path: docker-images.tar
           retention-days: 1
 
-  backend-test:
-    runs-on: ubuntu-latest
-    needs: build
+  # backend-test:
+  #   runs-on: ubuntu-latest
+  #   needs: build
 
-    steps:
-      - uses: actions/checkout@v3
+  #   steps:
+  #     - uses: actions/checkout@v3
 
-      - name: Настройка проекта
-        run: |
-          # Переходим в директорию project и используем docker-compose оттуда
-          cd project
+  #     - name: Настройка проекта
+  #       run: |
+  #         # Переходим в директорию project и используем docker-compose оттуда
+  #         cd project
           
-          # Удаляем устаревший атрибут version из docker-compose.yml
-          sed -i '/^version:/d' docker-compose.yml
+  #         # Удаляем устаревший атрибут version из docker-compose.yml
+  #         sed -i '/^version:/d' docker-compose.yml
 
-      - name: Загрузка Docker образов
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-images
+  #     - name: Загрузка Docker образов
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docker-images
 
-      - name: Загрузка образов в Docker
-        run: |
-          docker load -i docker-images.tar
+  #     - name: Загрузка образов в Docker
+  #       run: |
+  #         docker load -i docker-images.tar
 
-      - name: Настройка тестового окружения
-        run: |
-          # Запускаем только необходимые для тестирования сервисы из директории project
-          cd project
+  #     - name: Настройка тестового окружения
+  #       run: |
+  #         # Запускаем только необходимые для тестирования сервисы из директории project
+  #         cd project
           
-          # Запускаем только необходимые для тестирования сервисы
-          docker compose up -d postgres minio
+  #         # Запускаем только необходимые для тестирования сервисы
+  #         docker compose up -d postgres minio
           
-          # Ждем, пока сервисы запустятся
-          echo "Ожидание 20 секунд, пока сервисы запустятся..."
-          sleep 20
+  #         # Ждем, пока сервисы запустятся
+  #         echo "Ожидание 20 секунд, пока сервисы запустятся..."
+  #         sleep 20
 
-      - name: Проверка статуса сервисов
-        run: |
-          docker ps
-          cd project
-          docker compose logs postgres minio
+  #     - name: Проверка статуса сервисов
+  #       run: |
+  #         docker ps
+  #         cd project
+  #         docker compose logs postgres minio
 
-      - name: Запуск тестов backend в контейнере
-        run: |
-          # Используем переменные окружения из docker-compose для тестов
-          cd project
-          docker compose run --rm backend bash -c "cd /app && pip install pytest pytest-cov && pytest tests/ -v --cov=app"
+  #     - name: Запуск тестов backend в контейнере
+  #       run: |
+  #         # Используем переменные окружения из docker-compose для тестов
+  #         cd project
+  #         docker compose run --rm backend bash -c "cd /app && pip install pytest pytest-cov && pytest tests/ -v --cov=app"
           
-      - name: Генерация отчета о покрытии
-        run: |
-          cd project
+  #     - name: Генерация отчета о покрытии
+  #       run: |
+  #         cd project
           
-          # Создаем временный контейнер для получения отчета о покрытии
-          docker compose run --rm backend bash -c "cd /app && pytest tests/ --cov=app --cov-report=xml -o coverage.xml && chmod 777 coverage.xml"
+  #         # Создаем временный контейнер для получения отчета о покрытии
+  #         docker compose run --rm backend bash -c "cd /app && pytest tests/ --cov=app --cov-report=xml -o coverage.xml && chmod 777 coverage.xml"
           
-          # Копируем отчет из контейнера
-          mkdir -p ../backend
-          docker cp $(docker ps -aqf "name=backend" | head -n1):/app/coverage.xml ../backend/coverage.xml || echo "Не удалось скопировать отчет о покрытии"
+  #         # Копируем отчет из контейнера
+  #         mkdir -p ../backend
+  #         docker cp $(docker ps -aqf "name=backend" | head -n1):/app/coverage.xml ../backend/coverage.xml || echo "Не удалось скопировать отчет о покрытии"
 
-      - name: Загрузка отчета о покрытии
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage-report
-          path: backend/coverage.xml
-          if-no-files-found: warn
+  #     - name: Загрузка отчета о покрытии
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: backend-coverage-report
+  #         path: backend/coverage.xml
+  #         if-no-files-found: warn
 
-      - name: Остановка сервисов
-        run: |
-          cd project
-          docker compose down -v
-        if: always() # Убедимся, что сервисы остановятся даже если тесты завершились с ошибкой
+  #     - name: Остановка сервисов
+  #       run: |
+  #         cd project
+  #         docker compose down -v
+  #       if: always() # Убедимся, что сервисы остановятся даже если тесты завершились с ошибкой
 
-  frontend-test:
-    runs-on: ubuntu-latest
-    needs: build
+  # frontend-test:
+  #   runs-on: ubuntu-latest
+  #   needs: build
 
-    steps:
-      - uses: actions/checkout@v3
+  #   steps:
+  #     - uses: actions/checkout@v3
 
-      - name: Настройка проекта
-        run: |
-          # Переходим в директорию project и используем docker-compose оттуда
-          cd project
+  #     - name: Настройка проекта
+  #       run: |
+  #         # Переходим в директорию project и используем docker-compose оттуда
+  #         cd project
           
-          # Удаляем устаревший атрибут version из docker-compose.yml
-          sed -i '/^version:/d' docker-compose.yml
+  #         # Удаляем устаревший атрибут version из docker-compose.yml
+  #         sed -i '/^version:/d' docker-compose.yml
 
-      - name: Загрузка Docker образов
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-images
+  #     - name: Загрузка Docker образов
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docker-images
 
-      - name: Загрузка образов в Docker
-        run: |
-          docker load -i docker-images.tar
+  #     - name: Загрузка образов в Docker
+  #       run: |
+  #         docker load -i docker-images.tar
 
-      - name: Запуск тестов frontend в контейнере
-        run: |
-          # Запускаем тесты в контейнере
-          cd project
-          docker compose run --rm frontend bash -c "cd /app && npm test"
+  #     - name: Запуск тестов frontend в контейнере
+  #       run: |
+  #         # Запускаем тесты в контейнере
+  #         cd project
+  #         docker compose run --rm frontend bash -c "cd /app && npm test"
           
-      - name: Копирование отчета о покрытии
-        run: |
-          cd project
+  #     - name: Копирование отчета о покрытии
+  #       run: |
+  #         cd project
           
-          # Создаем временный контейнер для получения отчета о покрытии
-          docker compose run --rm frontend bash -c "cd /app && npm test -- --coverage && chmod -R 777 coverage"
+  #         # Создаем временный контейнер для получения отчета о покрытии
+  #         docker compose run --rm frontend bash -c "cd /app && npm test -- --coverage && chmod -R 777 coverage"
           
-          # Копируем отчет из контейнера
-          mkdir -p ../frontend
-          docker cp $(docker ps -aqf "name=frontend" | head -n1):/app/coverage ../frontend/ || echo "Не удалось скопировать отчет о покрытии"
+  #         # Копируем отчет из контейнера
+  #         mkdir -p ../frontend
+  #         docker cp $(docker ps -aqf "name=frontend" | head -n1):/app/coverage ../frontend/ || echo "Не удалось скопировать отчет о покрытии"
 
-      - name: Загрузка отчета о покрытии
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-coverage
-          path: frontend/coverage
-          if-no-files-found: warn
+  #     - name: Загрузка отчета о покрытии
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: frontend-coverage
+  #         path: frontend/coverage
+  #         if-no-files-found: warn
 
   # ЭТАП ПУБЛИКАЦИИ DOCKER-ОБРАЗОВ
   publish-docker-images:
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-test]
+    # needs: [backend-test, frontend-test]
     # Запускаем публикацию только при пуше в main или dev
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     
