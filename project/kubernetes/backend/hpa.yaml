@@ -9,24 +9,32 @@ spec:
     kind: Deployment
     name: backend
   minReplicas: 1
-  maxReplicas: 2
+  maxReplicas: 3
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 90  # 15% нагрузки на ЦП - порог для масштабирования
+        averageUtilization: 15
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60  # Ждать 1 минуту перед увеличением реплик
+      stabilizationWindowSeconds: 10
+      policies:
+      - type: Percent
+        value: 200
+        periodSeconds: 15
+      - type: Pods
+        value: 2
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 10
       policies:
       - type: Percent
         value: 100
         periodSeconds: 15
-    scaleDown:
-      stabilizationWindowSeconds: 300  # Ждать 5 минут перед уменьшением реплик
-      policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 15 
+
+
+
+#kubectl get hpa -n app-namespace
+#kubectl get hpa backend-hpa -n app-namespace -w

@@ -7,7 +7,6 @@ on:
     branches: [main, dev]
 
 jobs:
-  # ОБЩИЙ ЭТАП СБОРКИ С ИСПОЛЬЗОВАНИЕМ build.sh
   build:
     runs-on: ubuntu-latest
 
@@ -39,6 +38,17 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
+
+      - name: Настройка Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Сборка Docker образов
+        run: |
+          # Копируем актуальный docker-compose.yml из директории project
+          cp project/docker-compose.yml ./docker-compose.yml
+          
+          # Используем Docker Compose для сборки образов без запуска контейнеров
+          docker compose build --no-cache
 
       - name: Использование скрипта build.sh для сборки проекта
         run: |
@@ -75,7 +85,10 @@ jobs:
 
       - name: Запуск сервисов через Docker Compose
         run: |
-          # Используем существующий docker-compose.yml, но запускаем только необходимые сервисы
+          # Копируем актуальный docker-compose.yml из директории project
+          cp project/docker-compose.yml ./docker-compose.yml
+          
+          # Используем актуальный docker-compose.yml, но запускаем только необходимые сервисы
           docker compose up -d postgres minio
 
           # Ждем, пока сервисы запустятся
@@ -157,3 +170,68 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
           if-no-files-found: error
+
+  # ЭТАП ПУБЛИКАЦИИ DOCKER-ОБРАЗОВ
+  publish-docker-images:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Логин в Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Установка Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Копирование актуального docker-compose.yml
+        run: |
+          cp project/docker-compose.yml ./docker-compose.yml
+      
+      - name: Извлечение метаданных (тегов, labels) для Backend
+        id: meta-backend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/project-backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha
+      
+      - name: Сборка и публикация Backend Docker-образа
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-backend:buildcache,mode=max
+      
+      - name: Извлечение метаданных (тегов, labels) для Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/project-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha
+      
+      - name: Сборка и публикация Frontend Docker-образа
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-frontend:buildcache,mode=max
