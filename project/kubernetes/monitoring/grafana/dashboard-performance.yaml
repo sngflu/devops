@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-performance
+  namespace: app-namespace
+  labels:
+    grafana_dashboard: "true"
+data:
+  performance-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "graphTooltip": 0,
+      "panels": [
+        {
+          "title": "HTTP запросы по подам",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "id": 1,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total[5m])) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Ошибки 4xx и 5xx",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "id": 2,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{status=~\"4..\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}} - 4xx",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}} - 5xx",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "title": "CPU по подам",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "id": 3,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"app-namespace\"}[5m])) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "title": "Memory по подам",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "id": 4,
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "container_memory_usage_bytes{namespace=\"app-namespace\"}",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ]
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "title": "Минимальный мониторинг",
+      "uid": "basic-performance",
+      "version": 1
+    }

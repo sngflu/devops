@@ -30,8 +30,8 @@ spec:
 
       containers:
         - name: backend
-          image: sanchous1000/backend:prod-gunicorn
-          imagePullPolicy: IfNotPresent
+          image: sanchous1000/backend:prod-gunicorn-v3
+          imagePullPolicy: Always
           ports:
             - containerPort: 5174
               name: http
@@ -41,12 +41,12 @@ spec:
           resources:
             limits:
               cpu: 300m
-              memory: 512Mi
-              ephemeral-storage: "1Gi"
+              memory: 1Gi
+              ephemeral-storage: 2Gi
             requests:
               cpu: 100m
               memory: 256Mi
-              ephemeral-storage: "500Mi"
+              ephemeral-storage: 1Gi
           volumeMounts:
             - name: storage-volume
               mountPath: /app/storage

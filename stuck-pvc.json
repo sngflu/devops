@@ -1,0 +1,40 @@
+{
+    "apiVersion": "v1",
+    "kind": "PersistentVolumeClaim",
+    "metadata": {
+        "annotations": {
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"PersistentVolumeClaim\",\"metadata\":{\"annotations\":{},\"name\":\"prometheus-storage-pvc\",\"namespace\":\"default\"},\"spec\":{\"accessModes\":[\"ReadWriteOnce\"],\"resources\":{\"requests\":{\"storage\":\"5Gi\"}},\"storageClassName\":\"standard\"}}\n",
+            "pv.kubernetes.io/bind-completed": "yes",
+            "pv.kubernetes.io/bound-by-controller": "yes"
+        },
+        "creationTimestamp": "2025-05-09T15:47:19Z",
+        "deletionGracePeriodSeconds": 0,
+        "deletionTimestamp": "2025-05-17T08:58:04Z",
+        "name": "prometheus-storage-pvc",
+        "namespace": "default",
+        "resourceVersion": "111966",
+        "uid": "7fc8688d-7ce3-4b03-a861-408330dce8c4"
+    },
+    "spec": {
+        "accessModes": [
+            "ReadWriteOnce"
+        ],
+        "resources": {
+            "requests": {
+                "storage": "5Gi"
+            }
+        },
+        "storageClassName": "standard",
+        "volumeMode": "Filesystem",
+        "volumeName": "prometheus-pv"
+    },
+    "status": {
+        "accessModes": [
+            "ReadWriteOnce"
+        ],
+        "capacity": {
+            "storage": "5Gi"
+        },
+        "phase": "Bound"
+    }
+}

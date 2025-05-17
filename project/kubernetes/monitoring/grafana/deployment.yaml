@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
+  namespace: app-namespace
   labels:
     app: grafana
 spec:
@@ -15,74 +16,47 @@ spec:
         app: grafana
     spec:
       containers:
-      - name: grafana
-        image: grafana/grafana:8.5.3
-        ports:
-        - containerPort: 3000
-          name: http
-        resources:
-          limits:
-            memory: 512Mi
-            cpu: 500m
-          requests:
-            memory: 256Mi
-            cpu: 100m
-        env:
-        - name: GF_SECURITY_ADMIN_USER
-          value: admin
-        - name: GF_SECURITY_ADMIN_PASSWORD
-          value: admin
-        - name: GF_DASHBOARDS_MIN_REFRESH_INTERVAL
-          value: 5s
-        - name: GF_INSTALL_PLUGINS
-          value: "grafana-kubernetes-app"
-        volumeMounts:
-        - name: grafana-data
-          mountPath: /var/lib/grafana
-        - name: grafana-config
-          mountPath: /etc/grafana/provisioning/datasources
-        - name: dashboards-config
-          mountPath: /etc/grafana/provisioning/dashboards
-        - name: dashboard-pod-requests
-          mountPath: /var/lib/grafana/dashboards/pod-requests-dashboard.json
-          subPath: pod-requests-dashboard.json
-        - name: dashboard-hpa
-          mountPath: /var/lib/grafana/dashboards/backend-hpa-monitor.json
-          subPath: backend-hpa-monitor.json
-        - name: dashboard-nodes
-          mountPath: /var/lib/grafana/dashboards/kubernetes-nodes-monitor.json
-          subPath: kubernetes-nodes-monitor.json
+        - name: grafana
+          image: grafana/grafana:8.5.3
+          ports:
+            - containerPort: 3000
+              name: http
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 256Mi
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+            - name: GF_DASHBOARDS_MIN_REFRESH_INTERVAL
+              value: 5s
+            - name: GF_INSTALL_PLUGINS
+              value: grafana-piechart-panel
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: grafana-config
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-config
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboard-performance
+              mountPath: /var/lib/grafana/dashboards/performance-dashboard.json
+              subPath: performance-dashboard.json
       volumes:
-      - name: grafana-data
-        persistentVolumeClaim:
-          claimName: grafana-pvc
-      - name: grafana-config
-        configMap:
-          name: grafana-config
-      - name: dashboards-config
-        configMap:
-          name: grafana-dashboards
-      - name: dashboard-pod-requests
-        configMap:
-          name: grafana-dashboard-pod-requests
-      - name: dashboard-hpa
-        configMap:
-          name: grafana-dashboard-hpa
-      - name: dashboard-nodes
-        configMap:
-          name: grafana-dashboard-nodes
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: grafana-dashboard-json
-  namespace: app-namespace
-  labels:
-    app: grafana
-data:
-  pod-requests-dashboard.json: |
-    $(cat /home/terra/devops/project/kubernetes/monitoring/grafana/pod-requests-dashboard.json)
-  backend-hpa-monitor.json: |
-    $(cat /home/terra/devops/project/kubernetes/monitoring/grafana/backend-hpa-monitor.json)
-  kubernetes-nodes-monitor.json: |
-    $(cat /home/terra/devops/project/kubernetes/monitoring/grafana/kubernetes-nodes-monitor.json) 
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+        - name: grafana-config
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-config
+          configMap:
+            name: grafana-dashboards-providers
+        - name: dashboard-performance
+          configMap:
+            name: grafana-dashboard-performance

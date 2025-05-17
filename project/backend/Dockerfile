@@ -24,4 +24,5 @@ COPY . .
 
 EXPOSE 5174
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5174", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5174", "--timeout", "120", "wsgi:app"]
+

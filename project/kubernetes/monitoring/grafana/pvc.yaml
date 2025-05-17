@@ -1,10 +1,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: grafana-storage-pvc
+  name: grafana-pvc
+  namespace: app-namespace
 spec:
   accessModes:
     - ReadWriteOnce
+  volumeName: grafana-pv     
   resources:
     requests:
       storage: 2Gi

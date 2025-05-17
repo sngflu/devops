@@ -9,8 +9,10 @@ spec:
   ports:
   - port: 9000
     targetPort: 9000
+    nodePort: 30900
     name: api
   - port: 9001
     targetPort: 9001
+    nodePort: 30901
     name: console
-  type: ClusterIP 
+  type: NodePort 
