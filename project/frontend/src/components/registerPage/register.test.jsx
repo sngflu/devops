@@ -38,7 +38,7 @@ describe('Register Component', () => {
 
         await waitFor(() => {
             expect(axiosInstance.post).toHaveBeenCalledWith(
-                'http://127.0.0.1:5174/register',
+                '/register',
                 { username: 'newuser', password: 'newpassword' }
             );
         });

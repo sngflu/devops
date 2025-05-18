@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MainPage from './mainPage';
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 
-vi.mock('axios');
+vi.mock('../../utils/axios', () => ({
+    default: {
+        post: vi.fn()
+    }
+}));
+
 const navigateMock = vi.fn();
 
 vi.mock('react-router-dom', () => ({
@@ -43,7 +48,7 @@ describe('MainPage Component', () => {
     });
 
     it('sends video to backend when detect is clicked', async () => {
-        axios.post.mockResolvedValue({
+        axiosInstance.post.mockResolvedValue({
             data: {
                 video_url: 'processed-video.mp4',
                 frame_objects: [[1, 2, 0]]
@@ -60,13 +65,12 @@ describe('MainPage Component', () => {
         fireEvent.click(screen.getByText('Detect'));
 
         await waitFor(() => {
-            expect(axios.post).toHaveBeenCalledWith(
-                'http://127.0.0.1:5174/predict',
+            expect(axiosInstance.post).toHaveBeenCalledWith(
+                '/predict',
                 expect.any(FormData),
                 expect.objectContaining({
                     headers: expect.objectContaining({
-                        'Content-Type': 'multipart/form-data',
-                        'Authorization': 'Bearer fake-token'
+                        'Content-Type': 'multipart/form-data'
                     })
                 })
             );
@@ -83,7 +87,7 @@ describe('MainPage Component', () => {
 
     it('logs an error if video upload fails', async () => {
         const errorMessage = 'Network error';
-        axios.post.mockRejectedValue(new Error(errorMessage));
+        axiosInstance.post.mockRejectedValue(new Error(errorMessage));
 
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 

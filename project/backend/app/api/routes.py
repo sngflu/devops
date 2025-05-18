@@ -695,3 +695,8 @@ def update_video(filename):
     except Exception as e:
         api_errors_total.labels(endpoint='/videos/<filename>/rename', error_type='auth_exception').inc()
         raise e
+
+
+@bp.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"}), 200

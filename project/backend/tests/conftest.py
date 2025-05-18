@@ -31,6 +31,36 @@ def app():
         app.db_manager = mock_db_instance
         app.storage = mock_storage_instance
         
+        # Настраиваем моки для database
+        app.db_manager.init_database.return_value = True
+        app.db_manager.create_user.return_value = 1
+        app.db_manager.get_user_by_username.return_value = {
+            'id': 1, 'username': 'testuser', 'password_hash': 'hash'
+        }
+        app.db_manager.save_video_metadata.return_value = True
+        app.db_manager.get_user_videos.return_value = [
+            {'filename': 'test.mp4', 'original_name': 'test.mp4', 'timestamp': '2023-01-01 12:00:00'}
+        ]
+        app.db_manager.delete_video.return_value = True
+        
+        # Настраиваем моки для minio storage
+        app.storage.save_video.return_value = 'testuser_20230101_video.mp4'
+        app.storage.save_log.return_value = 'testuser_20230101_video.json'
+        app.storage.get_presigned_url.return_value = 'https://example.com/video.mp4'
+        app.storage.get_log.return_value = [[0, 0.8, "person"], [1, 0.7, "car"]]
+        app.storage.delete_objects.return_value = True
+        
+        # Настраиваем мок для video processing
+        with patch('app.api.routes.video_processing.process_video') as mock_process:
+            mock_process.return_value = (
+                'testuser_20230101_video.mp4',  # video_filename
+                [[0, 0.8, "person"], [1, 0.7, "car"]],  # frame_objects
+                30,  # fps
+                False,  # has_weapon
+                'testuser_20230101_video.json'  # log_filename
+            )
+            app.process_video = mock_process
+        
         yield app
 
 @pytest.fixture
@@ -50,6 +80,12 @@ def auth_token():
 def auth_headers(auth_token):
     """Создает заголовки авторизации."""
     return {'Authorization': f'Bearer {auth_token}'}
+
+@pytest.fixture
+def authenticated_client(client, auth_token):
+    """Создает аутентифицированный клиент для тестирования защищенных маршрутов."""
+    client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {auth_token}'
+    return client
 
 @pytest.fixture
 def test_video_file():

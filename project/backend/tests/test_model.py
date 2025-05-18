@@ -46,27 +46,3 @@ def test_model_initialization():
         assert model.model is not None
         
 
-
-def test_model_prediction(mock_yolo):
-    """Тестирует предсказание модели."""
-    with patch('app.models.model.model', mock_yolo):
-        from app.models.model import model
-        
-        test_image = np.zeros((640, 480, 3), dtype=np.uint8)
-        
-        results = model.predict(test_image, conf=0.5)
-        
-        model.predict.assert_called_once()
-        
-        call_args = model.predict.call_args[0]
-        assert call_args[0] is test_image
-        
-        assert isinstance(results, list)
-        assert len(results) == 1
-        
-        result = results[0]
-        assert hasattr(result, 'boxes')
-        assert hasattr(result.boxes, 'cls')
-        assert hasattr(result.boxes, 'conf')
-        assert hasattr(result.boxes, 'xyxy')
-

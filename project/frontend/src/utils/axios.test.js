@@ -8,7 +8,7 @@ vi.mock('axios', async (importOriginal) => {
         ...originalAxios,
         create: vi.fn(() => ({
             defaults: {
-                baseURL: import.meta.env.VITE_API_URL || 'http://api.51.250.74.197.nip.io',
+                baseURL: '/api',
             },
             interceptors: {
                 request: {
@@ -32,7 +32,6 @@ describe('Axios Instance', () => {
     });
 
     it('should have the correct base URL', () => {
-        const baseURL = import.meta.env.VITE_API_URL || 'http://api.51.250.74.197.nip.io';
-        expect(axiosInstance.defaults.baseURL).toBe(baseURL);
+        expect(axiosInstance.defaults.baseURL).toBe('/api');
     });
 });
