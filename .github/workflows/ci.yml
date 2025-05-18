@@ -2,14 +2,14 @@ name: CI проекта
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, lab3]
   pull_request:
-    branches: [main, dev]
+    branches: [main, lab3]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
       - uses: actions/checkout@v3
 
@@ -44,132 +44,84 @@ jobs:
           path: docker-images.tar
           retention-days: 1
 
-  # backend-test:
-  #   runs-on: ubuntu-latest
-  #   needs: build
-
-  #   steps:
-  #     - uses: actions/checkout@v3
-
-  #     - name: Настройка проекта
-  #       run: |
-  #         # Переходим в директорию project и используем docker-compose оттуда
-  #         cd project
-          
-  #         # Удаляем устаревший атрибут version из docker-compose.yml
-  #         sed -i '/^version:/d' docker-compose.yml
-
-  #     - name: Загрузка Docker образов
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: docker-images
-
-  #     - name: Загрузка образов в Docker
-  #       run: |
-  #         docker load -i docker-images.tar
-
-  #     - name: Настройка тестового окружения
-  #       run: |
-  #         # Запускаем только необходимые для тестирования сервисы из директории project
-  #         cd project
-          
-  #         # Запускаем только необходимые для тестирования сервисы
-  #         docker compose up -d postgres minio
-          
-  #         # Ждем, пока сервисы запустятся
-  #         echo "Ожидание 20 секунд, пока сервисы запустятся..."
-  #         sleep 20
-
-  #     - name: Проверка статуса сервисов
-  #       run: |
-  #         docker ps
-  #         cd project
-  #         docker compose logs postgres minio
-
-  #     - name: Запуск тестов backend в контейнере
-  #       run: |
-  #         # Используем переменные окружения из docker-compose для тестов
-  #         cd project
-  #         docker compose run --rm backend bash -c "cd /app && pip install pytest pytest-cov && pytest tests/ -v --cov=app"
-          
-  #     - name: Генерация отчета о покрытии
-  #       run: |
-  #         cd project
-          
-  #         # Создаем временный контейнер для получения отчета о покрытии
-  #         docker compose run --rm backend bash -c "cd /app && pytest tests/ --cov=app --cov-report=xml -o coverage.xml && chmod 777 coverage.xml"
-          
-  #         # Копируем отчет из контейнера
-  #         mkdir -p ../backend
-  #         docker cp $(docker ps -aqf "name=backend" | head -n1):/app/coverage.xml ../backend/coverage.xml || echo "Не удалось скопировать отчет о покрытии"
-
-  #     - name: Загрузка отчета о покрытии
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: backend-coverage-report
-  #         path: backend/coverage.xml
-  #         if-no-files-found: warn
-
-  #     - name: Остановка сервисов
-  #       run: |
-  #         cd project
-  #         docker compose down -v
-  #       if: always() # Убедимся, что сервисы остановятся даже если тесты завершились с ошибкой
-
-  # frontend-test:
-  #   runs-on: ubuntu-latest
-  #   needs: build
-
-  #   steps:
-  #     - uses: actions/checkout@v3
-
-  #     - name: Настройка проекта
-  #       run: |
-  #         # Переходим в директорию project и используем docker-compose оттуда
-  #         cd project
-          
-  #         # Удаляем устаревший атрибут version из docker-compose.yml
-  #         sed -i '/^version:/d' docker-compose.yml
-
-  #     - name: Загрузка Docker образов
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: docker-images
-
-  #     - name: Загрузка образов в Docker
-  #       run: |
-  #         docker load -i docker-images.tar
-
-  #     - name: Запуск тестов frontend в контейнере
-  #       run: |
-  #         # Запускаем тесты в контейнере
-  #         cd project
-  #         docker compose run --rm frontend bash -c "cd /app && npm test"
-          
-  #     - name: Копирование отчета о покрытии
-  #       run: |
-  #         cd project
-          
-  #         # Создаем временный контейнер для получения отчета о покрытии
-  #         docker compose run --rm frontend bash -c "cd /app && npm test -- --coverage && chmod -R 777 coverage"
-          
-  #         # Копируем отчет из контейнера
-  #         mkdir -p ../frontend
-  #         docker cp $(docker ps -aqf "name=frontend" | head -n1):/app/coverage ../frontend/ || echo "Не удалось скопировать отчет о покрытии"
-
-  #     - name: Загрузка отчета о покрытии
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: frontend-coverage
-  #         path: frontend/coverage
-  #         if-no-files-found: warn
-
-  # ЭТАП ПУБЛИКАЦИИ DOCKER-ОБРАЗОВ
-  publish-docker-images:
+  backend-test:
+    needs: [build]
     runs-on: ubuntu-latest
-    # needs: [backend-test, frontend-test]
-    # Запускаем публикацию только при пуше в main или dev
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Настройка Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Установка зависимостей бэкенда
+        run: |
+          cd project/backend
+          python -m pip install -r requirements.txt
+          # Устанавливаем pytest для запуска тестов
+          python -m pip install pytest pytest-cov
+
+      - name: Запуск тестов backend
+        run: |
+          # Запускаем только стабильные тесты без зависимостей (как в build.sh)
+          cd project/backend
+          python -m pytest tests/test_database.py tests/test_minio_storage.py tests/test_model.py tests/test_video_processing.py -v
+
+      - name: Генерация отчета о покрытии бэкенда
+        run: |
+          cd project/backend
+          python -m pytest tests/test_database.py tests/test_minio_storage.py tests/test_model.py tests/test_video_processing.py --cov=app --cov-report=xml
+
+      - name: Загрузка отчета о покрытии бэкенда
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: project/backend/coverage.xml
+          if-no-files-found: warn
+
+  frontend-test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Настройка Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: project/frontend/package-lock.json
+
+      - name: Установка зависимостей фронтенда
+        run: |
+          cd project/frontend
+          npm ci
+
+      - name: Запуск тестов frontend
+        run: |
+          # Запускаем только базовые компоненты для тестирования (согласно build.sh)
+          cd project/frontend
+          npm test -- --run src/utils/axios.test.js --environment jsdom
+
+      - name: Генерация отчета о покрытии фронтенда
+        run: |
+          cd project/frontend
+          npm test -- --coverage src/utils/axios.test.js --environment jsdom
+          
+      - name: Загрузка отчета о покрытии фронтенда
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-report
+          path: project/frontend/coverage
+          if-no-files-found: warn
+
+  publish:
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v3
@@ -191,6 +143,15 @@ jobs:
           # Удаляем устаревший атрибут version из docker-compose.yml
           sed -i '/^version:/d' docker-compose.yml
       
+      - name: Загрузка Docker образов
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+
+      - name: Загрузка образов в Docker
+        run: |
+          docker load -i docker-images.tar
+      
       - name: Извлечение метаданных (тегов, labels) для Backend
         id: meta-backend
         uses: docker/metadata-action@v4
@@ -198,9 +159,9 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/project-backend
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
             type=sha
+            latest
       
       - name: Сборка и публикация Backend Docker-образа
         uses: docker/build-push-action@v4
@@ -219,9 +180,9 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/project-frontend
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
             type=sha
+            latest
       
       - name: Сборка и публикация Frontend Docker-образа
         uses: docker/build-push-action@v4
