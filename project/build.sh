@@ -88,8 +88,8 @@ function test_backend() {
     echo "🧪 Запускаем тесты для backend..."
     cd backend
     
-    echo "🔧 Запускаем только стабильные тесты без зависимостей..."
-    python -m pytest tests/test_database.py tests/test_minio_storage.py tests/test_model.py tests/test_video_processing.py -v || true
+    echo "🔧 Запускаем все тесты с покрытием..."
+    python -m pytest --cov=app --cov-report=xml -v || true
     
     cd ..
     echo "✅ Тесты backend завершены!"
@@ -99,11 +99,11 @@ function test_frontend() {
     echo "🧪 Запускаем тесты для frontend..."
     cd frontend
     
-    echo "🔧 Запускаем только базовые компоненты для тестирования..."
-    npm test -- --run src/utils/axios.test.js --environment jsdom || true
+    echo "🔧 Запускаем все тесты с покрытием..."
+    npm test -- --coverage --environment jsdom || true
     
     cd ..
-    echo "✅ Тесты frontend завершены! (Запущены только базовые тесты)"
+    echo "✅ Тесты frontend завершены!"
 }
 
 function test_all() {
