@@ -15,14 +15,20 @@ jobs:
       - name: Send Telegram start notification
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_WORKFLOW: ${{ github.workflow }}
         run: |
           MESSAGE=$(printf "📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n▶️ *Старт* на ветке \`${GITHUB_REF}\` (коммит \`${GITHUB_SHA::8}\`).\n")
           MESSAGE+=$(printf "\n")
-          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${TELEGRAM_CHAT_ID} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+
+          USERS=${{ secrets.TELEGRAM_USER_IDS }}
+          IFS=',' read -ra USER_IDS <<< "$USERS"
+          for user_id in "${USER_IDS[@]}"; do
+            echo "Sending start notification to user ID: $user_id"
+            curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+          done
 
   build:
     runs-on: ubuntu-latest
@@ -306,7 +312,7 @@ jobs:
       - name: Send Telegram notification
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
           GITHUB_RUN_STATUS: ${{ job.status }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
@@ -321,6 +327,11 @@ jobs:
             MESSAGE+=$(printf "❌ *Статус: ОШИБКА*\n")
           fi
 
-          MESSAGE+=$(printf "🌳 *Ветка:* \`${GITHUB_REF}\`\n🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})")
+          MESSAGE+=$(printf "🌳 *Ветка:* \`${GITHUB_REF}\`\n🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})\n")
 
-          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${TELEGRAM_CHAT_ID} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+          USERS=${{ secrets.TELEGRAM_USER_IDS }}
+          IFS=',' read -ra USER_IDS <<< "$USERS"
+          for user_id in "${USER_IDS[@]}"; do
+            echo "Sending notification to user ID: $user_id"
+            curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+          done
