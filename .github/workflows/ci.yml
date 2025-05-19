@@ -98,7 +98,7 @@ jobs:
       - name: Запуск тестов frontend
         run: |
           cd project/frontend
-          npm test -- --coverage --environment jsdom
+          npm test -- --coverage
 
       - name: Загрузка отчета о покрытии фронтенда
         uses: actions/upload-artifact@v4
