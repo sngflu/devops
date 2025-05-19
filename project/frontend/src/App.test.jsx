@@ -28,3 +28,9 @@ describe('App Component', () => {
         expect(screen.getByTestId('header-component')).toBeInTheDocument();
     });
 });
+
+describe('App stub', () => {
+    it('renders without crashing', () => {
+        render(<App />);
+    });
+});

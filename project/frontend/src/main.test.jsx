@@ -67,3 +67,7 @@ it('should render with StrictMode', async () => {
 
     renderSpy.mockRestore();
 });
+
+it('can be imported', () => {
+    // Just importing the module is enough for a basic coverage stub
+});

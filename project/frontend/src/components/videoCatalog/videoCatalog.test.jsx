@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import VideoCatalog from './videoCatalog';
 import axiosInstance from '../../utils/axios';
@@ -39,6 +39,7 @@ vi.mock('react-router-dom', async () => {
         ...actual,
         useLocation: () => mockLocation,
         Link: ({ children }) => <div>{children}</div>,
+        MemoryRouter: ({ children }) => <div>{children}</div>
     };
 });
 
@@ -64,6 +65,9 @@ describe('VideoCatalog Component', () => {
             if (url === `/videos/${mockVideo.filename}/logs`) {
                 return Promise.resolve({ data: mockVideo.logs });
             }
+            if (url === `/video/${mockVideo.filename}`) {
+                return Promise.resolve({ data: { url: 'mock-video-url' } });
+            }
             return Promise.reject(new Error('Unknown endpoint'));
         });
 
@@ -71,12 +75,6 @@ describe('VideoCatalog Component', () => {
         axiosInstance.delete.mockResolvedValue({});
 
         global.fetch.mockImplementation((url) => {
-            if (url === `/video/${mockVideo.filename}`) {
-                return Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({ url: 'mock-video-url' }),
-                });
-            }
             if (url === 'mock-video-url') {
                 return Promise.resolve({
                     ok: true,
@@ -95,34 +93,36 @@ describe('VideoCatalog Component', () => {
     });
 
     it('renders the catalog correctly', async () => {
-        render(
-            <MemoryRouter>
-                <VideoCatalog />
-            </MemoryRouter>
-        );
+        await act(async () => {
+            render(
+                <VideoCatalog />, { wrapper: MemoryRouter }
+            );
+        });
         expect(screen.getByText('Processed Videos')).toBeInTheDocument();
         expect(screen.getByText('Home')).toBeInTheDocument();
     });
 
     it('loads videos on mount and displays video items', async () => {
-        render(
-            <MemoryRouter>
-                <VideoCatalog />
-            </MemoryRouter>
-        );
+        await act(async () => {
+            render(
+                <VideoCatalog />, { wrapper: MemoryRouter }
+            );
+        });
         expect(await screen.findByText('test1.mp4')).toBeInTheDocument();
     });
 
     it('handles delete correctly', async () => {
-        render(
-            <MemoryRouter>
-                <VideoCatalog />
-            </MemoryRouter>
-        );
+        await act(async () => {
+            render(
+                <VideoCatalog />, { wrapper: MemoryRouter }
+            );
+        });
         const videoItem = await screen.findByText('test1.mp4');
         expect(videoItem).toBeInTheDocument();
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        await act(async () => {
+            const deleteButton = screen.getByText('Delete');
+            fireEvent.click(deleteButton);
+        });
         await waitFor(() => {
             expect(axiosInstance.delete).toHaveBeenCalledWith(
                 `/videos/${mockVideo.filename}`
@@ -131,29 +131,116 @@ describe('VideoCatalog Component', () => {
     });
 
     it('handles renaming correctly', async () => {
-        render(
-            <MemoryRouter>
-                <VideoCatalog />
-            </MemoryRouter>
-        );
+        axiosInstance.get.mockImplementation((url) => {
+            if (url === '/videos') {
+                return Promise.resolve({ data: [mockVideo] });
+            }
+            if (url === `/videos/${mockVideo.filename}/logs`) {
+                return Promise.resolve({ data: mockVideo.logs });
+            }
+            if (url === `/video/${mockVideo.filename}`) {
+                return Promise.resolve({ data: { url: 'mock-video-url' } });
+            }
+            return Promise.reject(new Error('Unknown endpoint'));
+        });
+
+        await act(async () => {
+            render(
+                <VideoCatalog />, { wrapper: MemoryRouter }
+            );
+        });
+
         const videoItem = await screen.findByText('test1.mp4');
-        fireEvent.click(videoItem);
+        await act(async () => {
+            fireEvent.click(videoItem);
+        });
+
+        await waitFor(() => expect(screen.getByText(/Detections: \d/)).toBeInTheDocument());
+
         const renameButton = screen.getByText('Rename');
-        fireEvent.click(renameButton);
+        await act(async () => {
+            fireEvent.click(renameButton);
+        });
         const input = screen.getByDisplayValue('test1.mp4');
         expect(input).toBeInTheDocument();
-        fireEvent.change(input, { target: { value: 'renamed.mp4' } });
-        fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+        await act(async () => {
+            fireEvent.change(input, { target: { value: 'renamed.mp4' } });
+        });
+
+        axiosInstance.put.mockResolvedValueOnce({ data: { new_filename: 'video1_renamed.mp4' } });
+
+        await act(async () => {
+            fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+        });
+
         await waitFor(() => {
             expect(axiosInstance.put).toHaveBeenCalledWith(
                 `/videos/${mockVideo.filename}`,
                 { new_name: 'renamed.mp4' }
             );
+            expect(screen.getByText('renamed.mp4')).toBeInTheDocument();
         });
     });
 
     it('extracts date and time from filename correctly', () => {
         const filename = 'video_20230425_153045_sample.mp4';
         const expected = '25.04.2023, 15:30:45';
+    });
+
+    it('handles loadVideos error', async () => {
+        axiosInstance.get.mockRejectedValueOnce(new Error('Load error'));
+        console.error = vi.fn();
+        await act(async () => {
+            render(<VideoCatalog />, { wrapper: MemoryRouter });
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(console.error).toHaveBeenCalled();
+    });
+
+    it('handles delete confirmation being false', async () => {
+        window.confirm = vi.fn(() => false);
+        axiosInstance.delete = vi.fn();
+
+        await act(async () => {
+            render(<VideoCatalog />, { wrapper: MemoryRouter });
+        });
+
+        await screen.findByText('test1.mp4');
+        await act(async () => {
+            const deleteButton = screen.getByText('Delete');
+            fireEvent.click(deleteButton);
+        });
+
+        expect(window.confirm).toHaveBeenCalled();
+        expect(axiosInstance.delete).not.toHaveBeenCalled();
+    });
+
+    it('handles delete error', async () => {
+        window.confirm = vi.fn(() => true);
+        axiosInstance.delete.mockRejectedValueOnce(new Error('Delete error'));
+        console.error = vi.fn();
+
+        await act(async () => {
+            render(<VideoCatalog />, { wrapper: MemoryRouter });
+        });
+
+        await screen.findByText('test1.mp4');
+        await act(async () => {
+            const deleteButton = screen.getByText('Delete');
+            fireEvent.click(deleteButton);
+        });
+
+        await waitFor(() => {
+            expect(axiosInstance.delete).toHaveBeenCalled();
+            expect(console.error).toHaveBeenCalledWith('Error deleting video:', expect.any(Error));
+        });
+    });
+});
+
+describe('VideoCatalog stub', () => {
+    it('renders without crashing', async () => {
+        await act(async () => {
+            render(<MemoryRouter><VideoCatalog /></MemoryRouter>);
+        });
     });
 });

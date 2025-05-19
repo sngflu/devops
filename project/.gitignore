@@ -27,3 +27,7 @@ terraform.tfvars
 # Образы дисков
 *.iso
 *.img
+
+.scannerwork/
+.coverage
+coverage.xml

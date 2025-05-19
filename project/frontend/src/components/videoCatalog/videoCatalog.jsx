@@ -179,7 +179,7 @@ const VideoCatalog = () => {
                         <button className="home-btn">Home</button>
                     </Link>
                 </div>
-                {videos.map((video) => (
+                {Array.isArray(videos) && videos.map((video) => (
                     <div
                         key={video.filename}
                         className={`video-item ${selectedVideo?.filename === video.filename ? 'active' : ''}`}

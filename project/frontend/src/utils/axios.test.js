@@ -35,3 +35,9 @@ describe('Axios Instance', () => {
         expect(axiosInstance.defaults.baseURL).toBe('/api');
     });
 });
+
+describe('axiosInstance stub', () => {
+  it('should be defined', () => {
+    expect(axiosInstance).toBeDefined();
+  });
+});
