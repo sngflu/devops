@@ -322,12 +322,12 @@ jobs:
           MESSAGE=$(printf "📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n")
 
           if [ "$GITHUB_RUN_STATUS" == "success" ]; then
-            MESSAGE+=$(printf "✅ *Статус: УСПЕХ*\n")
+            MESSAGE+=$(printf "\n✅ *Статус: УСПЕХ*\n")
           else
-            MESSAGE+=$(printf "❌ *Статус: ОШИБКА*\n")
+            MESSAGE+=$(printf "\n❌ *Статус: ОШИБКА*\n")
           fi
 
-          MESSAGE+=$(printf "🌳 *Ветка:* \`${GITHUB_REF}\`\n🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})\n")
+          MESSAGE+=$(printf "\n🌳 *Ветка:* \`${GITHUB_REF}\`\n🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})\n")
 
           USERS=${{ secrets.TELEGRAM_USER_IDS }}
           IFS=',' read -ra USER_IDS <<< "$USERS"
