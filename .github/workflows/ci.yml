@@ -66,14 +66,8 @@ jobs:
 
       - name: Запуск тестов backend
         run: |
-          # Запускаем только стабильные тесты без зависимостей (как в build.sh)
           cd project/backend
-          python -m pytest tests/test_database.py tests/test_minio_storage.py tests/test_model.py tests/test_video_processing.py -v
-
-      - name: Генерация отчета о покрытии бэкенда
-        run: |
-          cd project/backend
-          python -m pytest tests/test_database.py tests/test_minio_storage.py tests/test_model.py tests/test_video_processing.py --cov=app --cov-report=xml
+          python -m pytest --cov=app --cov-report=xml -v
 
       - name: Загрузка отчета о покрытии бэкенда
         uses: actions/upload-artifact@v4
@@ -103,14 +97,8 @@ jobs:
 
       - name: Запуск тестов frontend
         run: |
-          # Запускаем только базовые компоненты для тестирования (согласно build.sh)
           cd project/frontend
-          npm test -- --run src/utils/axios.test.js --environment jsdom
-
-      - name: Генерация отчета о покрытии фронтенда
-        run: |
-          cd project/frontend
-          npm test -- --coverage src/utils/axios.test.js --environment jsdom
+          npm test -- --coverage --environment jsdom
 
       - name: Загрузка отчета о покрытии фронтенда
         uses: actions/upload-artifact@v4
