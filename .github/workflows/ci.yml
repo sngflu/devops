@@ -7,6 +7,24 @@ on:
     branches: [main, lab4]
 
 jobs:
+  telegram-start-notification:
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Send Telegram start notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+        run: |
+          MESSAGE="📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n"
+          MESSAGE+="▶️ *Старт* на ветке \`${GITHUB_REF}\` (коммит \`${GITHUB_SHA::8}\`).\n"
+          MESSAGE+="\n"
+          curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${TELEGRAM_CHAT_ID} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+
   build:
     runs-on: ubuntu-latest
 
@@ -299,14 +317,14 @@ jobs:
           MESSAGE="📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n"
 
           if [ "$GITHUB_RUN_STATUS" == "success" ]; then
-            MESSAGE+="✅ Статус: УСПЕХ"
+            MESSAGE+="✅ *Статус: УСПЕХ*"
           else
-            MESSAGE+="❌ Статус: ОШИБКА"
+            MESSAGE+="❌ *Статус: ОШИБКА*"
           fi
 
           MESSAGE+="\n"
-          MESSAGE+="🌳 Ветка: ${GITHUB_REF}\n"
-          MESSAGE+="🛠️ Коммит: ${GITHUB_SHA::8}\n"
-          MESSAGE+="🔗 Подробнее: ${GITHUB_RUN_URL}"
+          MESSAGE+="🌳 *Ветка:* \`${GITHUB_REF}\`\n"
+          MESSAGE+="🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n"
+          MESSAGE+="🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})"
 
           curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${TELEGRAM_CHAT_ID} -d text="${MESSAGE}" -d parse_mode=Markdown || true
