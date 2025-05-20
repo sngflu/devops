@@ -42,7 +42,7 @@ update_deployment() {
 }
 
 # Основные параметры
-NAMESPACE="app-namespace"
+NAMESPACE="lab4-app"
 DOCKER_USERNAME=${DOCKER_USERNAME:-"sngflu"}
 VERSION=${VERSION:-"latest"}
 
