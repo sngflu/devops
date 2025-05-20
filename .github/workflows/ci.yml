@@ -327,7 +327,7 @@ jobs:
           ./kubernetes/update-app.sh
 
   telegram-notification:
-    needs: [publish, sonarqube-analysis]
+    needs: [deploy]
     runs-on: ubuntu-latest
     if: always()
 

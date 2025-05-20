@@ -23,16 +23,32 @@ if ! kubectl cluster-info &> /dev/null; then
     handle_error "Нет подключения к кластеру Kubernetes"
 fi
 
-# Функция для обновления деплоймента
-update_deployment() {
+# Функция для создания или обновления деплоймента
+create_or_update_deployment() {
     local deployment=$1
     local namespace=$2
     local image=$3
 
-    echo -e "${YELLOW}Обновление $deployment...${NC}"
+    echo -e "${YELLOW}Проверка наличия $deployment...${NC}"
     
-    # Обновляем образ
-    kubectl set image deployment/$deployment $deployment=$image -n $namespace || handle_error "Ошибка обновления $deployment"
+    # Проверяем, существует ли деплоймент
+    if ! kubectl get deployment $deployment -n $namespace &> /dev/null; then
+        echo -e "${YELLOW}Создание $deployment...${NC}"
+        
+        # Создаем деплоймент
+        kubectl create deployment $deployment --image=$image -n $namespace || handle_error "Ошибка создания $deployment"
+        
+        # Создаем сервис
+        if [ "$deployment" == "backend" ]; then
+            kubectl expose deployment $deployment --port=5174 --target-port=5174 --type=NodePort -n $namespace || handle_error "Ошибка создания сервиса для $deployment"
+        elif [ "$deployment" == "frontend" ]; then
+            kubectl expose deployment $deployment --port=80 --target-port=80 --type=NodePort -n $namespace || handle_error "Ошибка создания сервиса для $deployment"
+        fi
+    else
+        echo -e "${YELLOW}Обновление $deployment...${NC}"
+        # Обновляем образ
+        kubectl set image deployment/$deployment $deployment=$image -n $namespace || handle_error "Ошибка обновления $deployment"
+    fi
     
     # Ждем завершения обновления
     echo -e "${YELLOW}Ожидание завершения обновления $deployment...${NC}"
@@ -47,10 +63,10 @@ DOCKER_USERNAME=${DOCKER_USERNAME:-"sngflu"}
 VERSION=${VERSION:-"latest"}
 
 # Обновление backend
-update_deployment "backend" $NAMESPACE "$DOCKER_USERNAME/project-backend:$VERSION"
+create_or_update_deployment "backend" $NAMESPACE "$DOCKER_USERNAME/project-backend:$VERSION"
 
 # Обновление frontend
-update_deployment "frontend" $NAMESPACE "$DOCKER_USERNAME/project-frontend:$VERSION"
+create_or_update_deployment "frontend" $NAMESPACE "$DOCKER_USERNAME/project-frontend:$VERSION"
 
 echo -e "${GREEN}Приложение успешно обновлено!${NC}"
 echo -e "${YELLOW}Проверка статуса подов:${NC}"
