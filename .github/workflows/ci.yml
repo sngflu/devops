@@ -305,7 +305,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [publish, sonarqube-analysis]
+    needs: [sonarqube-analysis] # Зависим только от проверки SonarQube
 
     steps:
       - uses: actions/checkout@v3
@@ -359,7 +359,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
-          GITHUB_RUN_STATUS: ${{ job.status }}
+          GITHUB_RUN_STATUS: ${{ needs.deploy.result == 'success' && needs.deploy-services.result == 'success' && 'success' || 'failure' }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_WORKFLOW: ${{ github.workflow }}

@@ -28,6 +28,7 @@ create_or_update_deployment() {
     local deployment=$1
     local namespace=$2
     local image=$3
+    local container_name=$4
 
     echo -e "${YELLOW}Проверка наличия $deployment...${NC}"
     
@@ -46,8 +47,8 @@ create_or_update_deployment() {
         fi
     else
         echo -e "${YELLOW}Обновление $deployment...${NC}"
-        # Обновляем образ
-        kubectl set image deployment/$deployment $deployment=$image -n $namespace || handle_error "Ошибка обновления $deployment"
+        # Обновляем образ, используя правильное имя контейнера
+        kubectl set image deployment/$deployment $container_name=$image -n $namespace || handle_error "Ошибка обновления $deployment"
     fi
     
     # Ждем завершения обновления
@@ -63,10 +64,10 @@ DOCKER_USERNAME=${DOCKER_USERNAME:-"sngflu"}
 VERSION=${VERSION:-"latest"}
 
 # Обновление backend
-create_or_update_deployment "backend" $NAMESPACE "$DOCKER_USERNAME/project-backend:$VERSION"
+create_or_update_deployment "backend" $NAMESPACE "$DOCKER_USERNAME/project-backend:$VERSION" "project-backend"
 
 # Обновление frontend
-create_or_update_deployment "frontend" $NAMESPACE "$DOCKER_USERNAME/project-frontend:$VERSION"
+create_or_update_deployment "frontend" $NAMESPACE "$DOCKER_USERNAME/project-frontend:$VERSION" "project-frontend"
 
 echo -e "${GREEN}Приложение успешно обновлено!${NC}"
 echo -e "${YELLOW}Проверка статуса подов:${NC}"
