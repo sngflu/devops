@@ -303,6 +303,29 @@ jobs:
             sleep 10
           done
 
+  deploy:
+    needs: [publish, sonarqube-analysis]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config # Ensure the file has correct permissions
+          kubectl config view # Optional: View config to verify connection info (secrets will be masked)
+          kubectl cluster-info # Optional: Check cluster connectivity
+
+      - name: Make update script executable
+        run: chmod +x project/kubernetes/update-app.sh
+
+      - name: Run Deployment Script
+        run: |
+          cd project
+          ./kubernetes/update-app.sh
+
   telegram-notification:
     needs: [publish, sonarqube-analysis]
     runs-on: ubuntu-latest
@@ -335,26 +358,3 @@ jobs:
             echo "Sending notification to user ID: $user_id"
             curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
           done
-
-  deploy:
-    needs: [publish, sonarqube-analysis]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-          chmod 600 ~/.kube/config # Ensure the file has correct permissions
-          kubectl config view # Optional: View config to verify connection info (secrets will be masked)
-          kubectl cluster-info # Optional: Check cluster connectivity
-
-      - name: Make update script executable
-        run: chmod +x project/kubernetes/update-app.sh
-
-      - name: Run Deployment Script
-        run: |
-          cd devops/project
-          ./kubernetes/update-app.sh
