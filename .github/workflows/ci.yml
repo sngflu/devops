@@ -304,8 +304,8 @@ jobs:
           done
 
   deploy:
-    needs: [publish, sonarqube-analysis]
     runs-on: ubuntu-latest
+    needs: [publish, sonarqube-analysis]
 
     steps:
       - uses: actions/checkout@v3
@@ -314,9 +314,9 @@ jobs:
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-          chmod 600 ~/.kube/config # Ensure the file has correct permissions
-          kubectl config view # Optional: View config to verify connection info (secrets will be masked)
-          kubectl cluster-info # Optional: Check cluster connectivity
+          chmod 600 ~/.kube/config
+          kubectl config view
+          kubectl cluster-info
 
       - name: Make update script executable
         run: chmod +x project/kubernetes/update-app.sh
@@ -326,8 +326,31 @@ jobs:
           cd project
           ./kubernetes/update-app.sh
 
-  telegram-notification:
+  deploy-services:
     needs: [deploy]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl config view
+          kubectl cluster-info
+
+      - name: Make setup script executable
+        run: chmod +x project/kubernetes/setup-services.sh
+
+      - name: Run Services Setup Script
+        run: |
+          cd project
+          ./kubernetes/setup-services.sh
+
+  telegram-notification:
+    needs: [deploy, deploy-services]
     runs-on: ubuntu-latest
     if: always()
 
