@@ -12,6 +12,16 @@ handle_error() {
     exit 1
 }
 
+# Функция для выполнения команд с таймаутом
+run_with_timeout() {
+    local timeout=$1
+    local command=$2
+    local description=$3
+    
+    echo -e "${YELLOW}Выполнение: $description${NC}"
+    timeout $timeout bash -c "$command" || handle_error "Таймаут выполнения: $description"
+}
+
 # Проверка наличия kubectl
 if ! command -v kubectl &> /dev/null; then
     handle_error "kubectl не установлен"
@@ -19,56 +29,38 @@ fi
 
 # Проверка подключения к кластеру
 echo -e "${YELLOW}Проверка подключения к кластеру Kubernetes...${NC}"
-if ! kubectl cluster-info &> /dev/null; then
-    handle_error "Нет подключения к кластеру Kubernetes"
-fi
+run_with_timeout 30 "kubectl cluster-info" "Проверка подключения к кластеру"
 
-# Функция для создания или обновления деплоймента
-create_or_update_deployment() {
-    local deployment=$1
-    local namespace=$2
-    local image=$3
-    local container_name=$4
-
-    echo -e "${YELLOW}Проверка наличия $deployment...${NC}"
+# Функция для обновления приложения
+update_app() {
+    local app_name=$1
+    local namespace="lab4-app"
     
-    # Проверяем, существует ли деплоймент
-    if ! kubectl get deployment $deployment -n $namespace &> /dev/null; then
-        echo -e "${YELLOW}Создание $deployment...${NC}"
-        
-        # Создаем деплоймент
-        kubectl create deployment $deployment --image=$image -n $namespace || handle_error "Ошибка создания $deployment"
-        
-        # Создаем сервис
-        if [ "$deployment" == "backend" ]; then
-            kubectl expose deployment $deployment --port=5174 --target-port=5174 --type=NodePort -n $namespace || handle_error "Ошибка создания сервиса для $deployment"
-        elif [ "$deployment" == "frontend" ]; then
-            kubectl expose deployment $deployment --port=80 --target-port=80 --type=NodePort -n $namespace || handle_error "Ошибка создания сервиса для $deployment"
-        fi
+    echo -e "${YELLOW}Проверка наличия $app_name...${NC}"
+    if kubectl get deployment $app_name -n $namespace &> /dev/null; then
+        echo -e "${YELLOW}Обновление $app_name...${NC}"
+        # Удаляем существующий сервис
+        kubectl delete service $app_name -n $namespace --force --grace-period=0 2>/dev/null || true
+        # Обновляем деплоймент
+        kubectl set image deployment/$app_name $app_name=ghcr.io/$GITHUB_REPOSITORY/$app_name:latest -n $namespace
+        echo -e "${YELLOW}Ожидание завершения обновления $app_name...${NC}"
+        kubectl rollout status deployment/$app_name -n $namespace
+        echo -e "${GREEN}$app_name успешно обновлен!${NC}"
     else
-        echo -e "${YELLOW}Обновление $deployment...${NC}"
-        # Обновляем образ, используя правильное имя контейнера
-        kubectl set image deployment/$deployment $container_name=$image -n $namespace || handle_error "Ошибка обновления $deployment"
+        echo -e "${YELLOW}Создание $app_name...${NC}"
+        # Удаляем существующий сервис если он есть
+        kubectl delete service $app_name -n $namespace --force --grace-period=0 2>/dev/null || true
+        # Создаем деплоймент
+        kubectl apply -f $app_name/deployment.yaml
+        # Создаем сервис
+        kubectl apply -f $app_name/service.yaml
     fi
-    
-    # Ждем завершения обновления
-    echo -e "${YELLOW}Ожидание завершения обновления $deployment...${NC}"
-    kubectl rollout status deployment/$deployment -n $namespace || handle_error "Ошибка при обновлении $deployment"
-    
-    echo -e "${GREEN}$deployment успешно обновлен!${NC}"
 }
 
-# Основные параметры
-NAMESPACE="lab4-app"
-DOCKER_USERNAME=${DOCKER_USERNAME:-"sngflu"}
-VERSION=${VERSION:-"latest"}
+# Обновляем backend
+update_app "backend"
 
-# Обновление backend
-create_or_update_deployment "backend" $NAMESPACE "$DOCKER_USERNAME/project-backend:$VERSION" "project-backend"
+# Обновляем frontend
+update_app "frontend"
 
-# Обновление frontend
-create_or_update_deployment "frontend" $NAMESPACE "$DOCKER_USERNAME/project-frontend:$VERSION" "project-frontend"
-
-echo -e "${GREEN}Приложение успешно обновлено!${NC}"
-echo -e "${YELLOW}Проверка статуса подов:${NC}"
-kubectl get pods -n $NAMESPACE 
+echo -e "${GREEN}Все приложения успешно обновлены!${NC}" 
