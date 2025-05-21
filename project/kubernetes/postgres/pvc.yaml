@@ -9,4 +9,5 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  storageClassName: standard 
+  storageClassName: standard
+  volumeName: postgres-pv-lab4

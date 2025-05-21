@@ -341,6 +341,13 @@ jobs:
           kubectl config view
           kubectl cluster-info
 
+      - name: Create PV directories
+        run: |
+          # Создаем директории для PV
+          kubectl get nodes -o wide | grep -v NAME | awk '{print $6}' | while read node_ip; do
+            ssh -o StrictHostKeyChecking=no root@$node_ip "mkdir -p /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/grafana-pv-lab4 && chmod 777 /mnt/k8s/*-lab4"
+          done
+
       - name: Make setup script executable
         run: chmod +x project/kubernetes/setup-services.sh
 

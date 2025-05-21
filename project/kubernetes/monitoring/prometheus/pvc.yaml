@@ -6,8 +6,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  volumeName: prometheus-pv
   resources:
     requests:
       storage: 3Gi
   storageClassName: standard
+  volumeName: prometheus-pv-lab4
