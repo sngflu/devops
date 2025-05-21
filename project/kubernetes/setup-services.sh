@@ -37,6 +37,24 @@ apply_manifests() {
     done
 }
 
+# Функция для ожидания создания PV
+wait_for_pv() {
+    local pv_name=$1
+    local timeout=60
+    local interval=5
+    
+    echo -e "${YELLOW}Ожидание создания PV $pv_name...${NC}"
+    for ((i=0; i<timeout; i+=interval)); do
+        if kubectl get pv $pv_name &> /dev/null; then
+            echo -e "${GREEN}PV $pv_name создан${NC}"
+            return 0
+        fi
+        echo -e "${YELLOW}Ожидание создания PV $pv_name... (${i}s)${NC}"
+        sleep $interval
+    done
+    handle_error "Таймаут ожидания создания PV $pv_name"
+}
+
 # Основные параметры
 NAMESPACE="lab4-app"
 
@@ -47,18 +65,22 @@ kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0
 # Создаем PersistentVolume для Minio
 echo -e "${YELLOW}Создание PersistentVolume для Minio...${NC}"
 kubectl apply -f minio/pv.yaml || handle_error "Ошибка создания PV для Minio"
+wait_for_pv "minio-pv-lab4"
 
 # Создаем PersistentVolume для Postgres
 echo -e "${YELLOW}Создание PersistentVolume для Postgres...${NC}"
 kubectl apply -f postgres/pv.yaml || handle_error "Ошибка создания PV для Postgres"
+wait_for_pv "postgres-pv-lab4"
 
 # Создаем PersistentVolume для Prometheus
 echo -e "${YELLOW}Создание PersistentVolume для Prometheus...${NC}"
 kubectl apply -f monitoring/prometheus/pv.yaml || handle_error "Ошибка создания PV для Prometheus"
+wait_for_pv "prometheus-pv-lab4"
 
 # Создаем PersistentVolume для Grafana
 echo -e "${YELLOW}Создание PersistentVolume для Grafana...${NC}"
 kubectl apply -f monitoring/grafana/pv.yaml || handle_error "Ошибка создания PV для Grafana"
+wait_for_pv "grafana-pv-lab4"
 
 # Разворачиваем Minio
 echo -e "${YELLOW}Развертывание Minio...${NC}"
