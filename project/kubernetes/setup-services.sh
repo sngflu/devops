@@ -12,6 +12,16 @@ handle_error() {
     exit 1
 }
 
+# Функция для выполнения команд с таймаутом
+run_with_timeout() {
+    local timeout=$1
+    local command=$2
+    local description=$3
+    
+    echo -e "${YELLOW}Выполнение: $description${NC}"
+    timeout $timeout bash -c "$command" || handle_error "Таймаут выполнения: $description"
+}
+
 # Проверка наличия kubectl
 if ! command -v kubectl &> /dev/null; then
     handle_error "kubectl не установлен"
@@ -19,9 +29,7 @@ fi
 
 # Проверка подключения к кластеру
 echo -e "${YELLOW}Проверка подключения к кластеру Kubernetes...${NC}"
-if ! kubectl cluster-info &> /dev/null; then
-    handle_error "Нет подключения к кластеру Kubernetes"
-fi
+run_with_timeout 30 "kubectl cluster-info" "Проверка подключения к кластеру"
 
 # Функция для применения манифестов
 apply_manifests() {
@@ -33,7 +41,7 @@ apply_manifests() {
     # Применяем все yaml файлы в директории
     for file in $(find $dir -name "*.yaml" | sort); do
         echo -e "${YELLOW}Применение $file...${NC}"
-        kubectl apply -f $file -n $namespace || handle_error "Ошибка применения $file"
+        run_with_timeout 30 "kubectl apply -f $file -n $namespace" "Применение манифеста $file"
     done
 }
 
@@ -60,26 +68,26 @@ NAMESPACE="lab4-app"
 
 # Удаляем существующие PVC
 echo -e "${YELLOW}Удаление существующих PVC...${NC}"
-kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0
+run_with_timeout 30 "kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0" "Удаление PVC"
 
 # Создаем PersistentVolume для Minio
 echo -e "${YELLOW}Создание PersistentVolume для Minio...${NC}"
-kubectl apply -f minio/pv.yaml || handle_error "Ошибка создания PV для Minio"
+run_with_timeout 30 "kubectl apply -f minio/pv.yaml" "Создание PV для Minio"
 wait_for_pv "minio-pv-lab4"
 
 # Создаем PersistentVolume для Postgres
 echo -e "${YELLOW}Создание PersistentVolume для Postgres...${NC}"
-kubectl apply -f postgres/pv.yaml || handle_error "Ошибка создания PV для Postgres"
+run_with_timeout 30 "kubectl apply -f postgres/pv.yaml" "Создание PV для Postgres"
 wait_for_pv "postgres-pv-lab4"
 
 # Создаем PersistentVolume для Prometheus
 echo -e "${YELLOW}Создание PersistentVolume для Prometheus...${NC}"
-kubectl apply -f monitoring/prometheus/pv.yaml || handle_error "Ошибка создания PV для Prometheus"
+run_with_timeout 30 "kubectl apply -f monitoring/prometheus/pv.yaml" "Создание PV для Prometheus"
 wait_for_pv "prometheus-pv-lab4"
 
 # Создаем PersistentVolume для Grafana
 echo -e "${YELLOW}Создание PersistentVolume для Grafana...${NC}"
-kubectl apply -f monitoring/grafana/pv.yaml || handle_error "Ошибка создания PV для Grafana"
+run_with_timeout 30 "kubectl apply -f monitoring/grafana/pv.yaml" "Создание PV для Grafana"
 wait_for_pv "grafana-pv-lab4"
 
 # Разворачиваем Minio
@@ -100,4 +108,4 @@ apply_manifests "monitoring/grafana" $NAMESPACE
 
 echo -e "${GREEN}Все сервисы успешно развернуты!${NC}"
 echo -e "${YELLOW}Проверка статуса подов:${NC}"
-kubectl get pods -n $NAMESPACE 
+run_with_timeout 30 "kubectl get pods -n $NAMESPACE" "Проверка статуса подов" 
