@@ -9,10 +9,10 @@ spec:
   ports:
     - port: 9000
       targetPort: 9000
-      nodePort: 32900
+      nodePort: 31900
       name: api
     - port: 9001
       targetPort: 9001
-      nodePort: 32901
+      nodePort: 31901
       name: console
   type: NodePort

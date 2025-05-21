@@ -9,7 +9,7 @@ spec:
   ports:
     - port: 9090
       targetPort: web
-      nodePort: 32903
+      nodePort: 31903
       protocol: TCP
       name: http
   selector:

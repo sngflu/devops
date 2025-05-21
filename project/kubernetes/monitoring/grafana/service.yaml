@@ -9,7 +9,7 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
-      nodePort: 32902
+      nodePort: 31902
       protocol: TCP
       name: http
   selector:
