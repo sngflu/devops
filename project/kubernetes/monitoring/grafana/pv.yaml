@@ -8,7 +8,7 @@ spec:
     storage: 3Gi
   accessModes:
     - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
   hostPath:
-    path: /mnt/data/grafana
+    path: /mnt/k8s/grafana-pv-lab4
   storageClassName: standard
-  persistentVolumeReclaimPolicy: Retain

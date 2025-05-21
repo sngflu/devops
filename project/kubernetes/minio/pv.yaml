@@ -8,6 +8,6 @@ spec:
   accessModes:
     - ReadWriteOnce
   storageClassName: standard
-  persistentVolumeReclaimPolicy: Retain
+  persistentVolumeReclaimPolicy: Delete
   hostPath:
     path: /mnt/k8s/minio-pv-lab4
