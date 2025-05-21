@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: app-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "pguser"
+        - name: POSTGRES_PASSWORD
+          value: "pgpassword"
+        - name: POSTGRES_DB
+          value: "pgdatabase"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "pguser"]
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", "pguser"]
+          initialDelaySeconds: 30
+          periodSeconds: 15
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: postgres-init
+        configMap:
+          name: postgres-init-configmap 

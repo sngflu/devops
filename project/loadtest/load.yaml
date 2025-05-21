@@ -1,0 +1,13 @@
+phantom:
+  address: 192.168.10.18:30503
+  uris:
+    - /
+    - /predict
+    - /register
+  load_profile:
+    load_type: rps
+    schedule: line(1, 100, 1m) const(100, 2m)
+console:
+  enabled: true
+telegraf:
+  enabled: false 

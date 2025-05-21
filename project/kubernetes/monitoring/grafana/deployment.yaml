@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: app-namespace
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:8.5.3
+          ports:
+            - containerPort: 3000
+              name: http
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 256Mi
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+            - name: GF_DASHBOARDS_MIN_REFRESH_INTERVAL
+              value: 5s
+            - name: GF_INSTALL_PLUGINS
+              value: grafana-piechart-panel
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: grafana-config
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboards-config
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboard-performance
+              mountPath: /var/lib/grafana/dashboards/performance-dashboard.json
+              subPath: performance-dashboard.json
+      volumes:
+        - name: grafana-data
+          emptyDir: {}
+        - name: grafana-config
+          configMap:
+            name: grafana-datasources
+        - name: dashboards-config
+          configMap:
+            name: grafana-dashboards-providers
+        - name: dashboard-performance
+          configMap:
+            name: grafana-dashboard-performance

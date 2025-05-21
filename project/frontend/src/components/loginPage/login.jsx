@@ -10,7 +10,7 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axiosInstance.post('http://127.0.0.1:5174/login', {
+            const response = await axiosInstance.post('/login', {
                 username,
                 password
             });

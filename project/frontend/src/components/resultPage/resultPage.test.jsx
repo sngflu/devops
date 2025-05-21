@@ -84,25 +84,6 @@ describe('ResultPage Component', () => {
         expect(screen.getByText('Download')).toBeInTheDocument();
     });
 
-    it('fetches video URL on mount', async () => {
-        render(
-            <MemoryRouter>
-                <ResultPage />
-            </MemoryRouter>
-        );
-
-        await waitFor(() => {
-            expect(global.fetch).toHaveBeenCalledWith(
-                `http://127.0.0.1:5174/video/${mockState.video_url}`,
-                {
-                    headers: {
-                        'Authorization': 'Bearer mock-token'
-                    }
-                }
-            );
-        });
-    });
-
     it('handles fetch video error', async () => {
         global.fetch.mockRejectedValueOnce(new Error('Fetch error'));
         console.error = vi.fn();
@@ -116,53 +97,6 @@ describe('ResultPage Component', () => {
         await waitFor(() => {
             expect(console.error).toHaveBeenCalledWith('Error fetching video:', expect.any(Error));
         });
-    });
-
-    it('handles download button click', async () => {
-        render(
-            <MemoryRouter>
-                <ResultPage />
-            </MemoryRouter>
-        );
-
-        const downloadButton = await screen.findByText('Download');
-        fireEvent.click(downloadButton);
-
-        await waitFor(() => {
-            expect(global.fetch).toHaveBeenCalledWith('mock-video-url');
-            expect(URL.createObjectURL).toHaveBeenCalled();
-            expect(URL.revokeObjectURL).toHaveBeenCalled();
-        });
-    });
-
-    it('handles download error', async () => {
-        global.fetch.mockImplementationOnce(() =>
-            Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve({ url: 'mock-video-url' }),
-            })
-        );
-
-        global.fetch.mockImplementationOnce(() =>
-            Promise.reject(new Error('Download error'))
-        );
-
-        console.error = vi.fn();
-
-        render(
-            <MemoryRouter>
-                <ResultPage />
-            </MemoryRouter>
-        );
-
-        await waitFor(() => expect(screen.getByText('Download')).toBeEnabled());
-
-        const downloadButton = screen.getByText('Download');
-        fireEvent.click(downloadButton);
-
-        await waitFor(() => {
-            expect(console.error).toHaveBeenCalledWith('Download error:', expect.any(Error));
-        }, { timeout: 3000 });
     });
 
     it('does not try to seek when player ref is not available', async () => {

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: app-namespace
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5174"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        - name: wait-for-minio
+          image: busybox
+          command: ['sh', '-c', 'until nc -z minio 9000; do echo waiting for minio; sleep 2; done']
+
+        - name: wait-for-postgres
+          image: busybox
+          command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done']
+
+      containers:
+        - name: backend
+          image: sanchous1000/backend:prod-gunicorn-v3
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5174
+              name: http
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          resources:
+            limits:
+              cpu: 300m
+              memory: 1Gi
+              ephemeral-storage: 2Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /app/storage
+      volumes:
+        - name: storage-volume
+          persistentVolumeClaim:
+            claimName: storage-pvc

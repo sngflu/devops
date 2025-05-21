@@ -8,10 +8,14 @@ import tempfile
 import logging
 import uuid
 import traceback
+import time  # Добавляем для измерения времени операций
 from datetime import datetime
 from app.services.video_processing import video_processing
 from app.services.minio import MinioStorage
 from app.services.database import DatabaseManager
+from prometheus_client import Counter, Histogram, Gauge, Summary, generate_latest, CONTENT_TYPE_LATEST  # Импортируем классы метрик
+from app import metrics  # Импортируем экземпляр метрик из app
+from flask import Response
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -22,6 +26,11 @@ logger.setLevel(logging.INFO)
 
 
 bp = Blueprint("routes", __name__, url_prefix="")
+
+# Явно определяем эндпоинт для метрик в Blueprint
+@bp.route('/metrics')
+def metrics_endpoint():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
@@ -34,6 +43,75 @@ storage = MinioStorage()
 
 db_manager = DatabaseManager()
 db_manager.init_database()
+
+# === Определение метрик Prometheus для routes.py ===
+
+# Метрики аутентификации и пользователей
+user_registration_total = Counter(
+    'user_registration_total',
+    'Total number of user registration attempts',
+    ['status']  # 'success', 'error_user_exists', 'error_db', 'error_exception'
+)
+
+login_attempts_total = Counter(
+    'login_attempts_total',
+    'Total number of login attempts',
+    ['status']  # 'success', 'error_invalid_credentials', 'error_exception'
+)
+
+active_sessions_total = Gauge(
+    'active_sessions_total',
+    'Number of active user sessions'
+)
+
+# Метрики для работы с видео
+video_views_total = Counter(
+    'video_views_total',
+    'Total number of video views'
+)
+
+video_operations_total = Counter(
+    'video_operations_total',
+    'Total number of operations with videos',
+    ['operation_type', 'status']  # operation_type: view, delete, rename, list, logs
+)
+
+# Метрики производительности
+db_operation_latency = Histogram(
+    'db_operation_latency_seconds',
+    'Time spent executing database operations',
+    ['operation', 'table']  # operation: get, create, update, delete; table: users, videos, etc.
+)
+
+minio_operation_latency = Histogram(
+    'minio_operation_latency_seconds',
+    'Time spent executing MinIO operations',
+    ['operation_type']  # get_presigned_url, save_video, delete, etc.
+)
+
+api_response_size_bytes = Histogram(
+    'api_response_size_bytes',
+    'Size of API responses in bytes',
+    ['endpoint']
+)
+
+# Метрики ошибок
+api_errors_total = Counter(
+    'api_errors_total',
+    'Total number of API errors',
+    ['endpoint', 'error_type']
+)
+
+# Бизнес-метрики
+weapons_detected_per_video = Gauge(
+    'weapons_detected_per_video',
+    'Average number of weapons and knives detected per video'
+)
+
+videos_per_user = Gauge(
+    'videos_per_user',
+    'Average number of videos per user'
+)
 
 def token_required(f):
     @wraps(f)
@@ -54,53 +132,97 @@ def token_required(f):
 
 @bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
-   
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+       
+        if not username or not password:
+            user_registration_total.labels(status='error_invalid_input').inc()
+            return jsonify({"message": "Username and password are required"}), 400
 
-    if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
+        # Измеряем время операции с БД
+        db_start = time.time()
+        existing_user = db_manager.get_user_by_username(username)
+        db_operation_latency.labels(operation='get', table='users').observe(time.time() - db_start)
+        
+        if existing_user:
+            user_registration_total.labels(status='error_user_exists').inc()
+            return jsonify({"message": "Username already exists"}), 400
 
-    existing_user = db_manager.get_user_by_username(username)
-    if existing_user:
-        return jsonify({"message": "Username already exists"}), 400
+        hashed_password = generate_password_hash(password)
+        
+        # Измеряем время операции создания пользователя в БД
+        db_start = time.time()
+        user_id, error = db_manager.create_user(username, hashed_password)
+        db_operation_latency.labels(operation='create', table='users').observe(time.time() - db_start)
+        
+        if error:
+            user_registration_total.labels(status='error_db').inc()
+            api_errors_total.labels(endpoint='/register', error_type='db_error').inc()
+            return jsonify({"message": error}), 400
 
-    hashed_password = generate_password_hash(password)
-    user_id, error = db_manager.create_user(username, hashed_password)
-    
-    if error:
-        return jsonify({"message": error}), 400
+        token = jwt.encode(
+            {"user": username, "user_id": str(user_id)},
+            SECRET_KEY,
+        )
 
-    token = jwt.encode(
-        {"user": username, "user_id": str(user_id)},
-        SECRET_KEY,
-    )
-
-    return jsonify({"token": token}), 201
+        # Увеличиваем счетчик успешных регистраций
+        user_registration_total.labels(status='success').inc()
+        
+        # Измеряем размер ответа
+        response = jsonify({"token": token})
+        api_response_size_bytes.labels(endpoint='/register').observe(len(response.get_data(as_text=True)))
+        return response, 201
+    except Exception as e:
+        logger.error(f"Ошибка при регистрации: {str(e)}")
+        user_registration_total.labels(status='error_exception').inc()
+        api_errors_total.labels(endpoint='/register', error_type='exception').inc()
+        raise
 
 
 @bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
-    
-    if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        
+        if not username or not password:
+            login_attempts_total.labels(status='error_invalid_input').inc()
+            return jsonify({"message": "Username and password are required"}), 400
 
-    user = db_manager.get_user_by_username(username)
-    
-    if user and check_password_hash(user["password_hash"], password):
-        logger.info(f"Пользователь {username} аутентифицирован")
-        token = jwt.encode(
-            {"user": username, "user_id": str(user["user_id"])},
-            SECRET_KEY,
-        )
-        return jsonify({"token": token})
+        # Измеряем время операции с БД
+        db_start = time.time()
+        user = db_manager.get_user_by_username(username)
+        db_operation_latency.labels(operation='get', table='users').observe(time.time() - db_start)
+        
+        if user and check_password_hash(user["password_hash"], password):
+            logger.info(f"Пользователь {username} аутентифицирован")
+            token = jwt.encode(
+                {"user": username, "user_id": str(user["user_id"])},
+                SECRET_KEY,
+            )
+            
+            # Увеличиваем счетчик успешных входов
+            login_attempts_total.labels(status='success').inc()
+            
+            # Обновляем gauge активных сессий
+            active_sessions_total.inc()
+            
+            # Измеряем размер ответа
+            response = jsonify({"token": token})
+            api_response_size_bytes.labels(endpoint='/login').observe(len(response.get_data(as_text=True)))
+            return response
 
-    logger.warning(f"Неудачная попытка входа для пользователя {username}")
-    return jsonify({"message": "Invalid credentials"}), 401
+        logger.warning(f"Неудачная попытка входа для пользователя {username}")
+        login_attempts_total.labels(status='error_invalid_credentials').inc()
+        return jsonify({"message": "Invalid credentials"}), 401
+    except Exception as e:
+        logger.error(f"Ошибка при входе: {str(e)}")
+        login_attempts_total.labels(status='error_exception').inc()
+        api_errors_total.labels(endpoint='/login', error_type='exception').inc()
+        raise
 
 
 @bp.route("/predict", methods=["POST"])
@@ -221,34 +343,68 @@ def processing():
 @bp.route("/video/<path:filename>")
 @token_required
 def serve_video(filename):
-    token = request.headers.get("Authorization").split(" ")[1]
-    user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    username = user_data["user"]
-    user_id = user_data.get("user_id") 
-
-    if not filename.startswith(f"{username}_"):
-        return jsonify({"message": "Unauthorized"}), 401
-
+    start_time = time.time()  # Начало измерения времени выполнения
+    
     try:
-        if user_id:
-            video = db_manager.get_video_by_s3_key(filename)
-            if video and str(video['user_id']) != user_id:
-                return jsonify({"message": "Unauthorized"}), 401
-        
-        logger.info(f"Запрошено видео: {filename}")
-        video_url = storage.get_presigned_url(filename)
-        if video_url:
-            logger.info(f"Получена временная ссылка из MinIO для {filename}")
-           
-            return redirect(video_url) if request.args.get('direct') else jsonify({"url": video_url}), 200
-        else:
-            logger.error(f"Не удалось получить временную ссылку из MinIO для {filename}")
-            return jsonify({"error": "Video not found"}), 404
+        token = request.headers.get("Authorization").split(" ")[1]
+        user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username = user_data["user"]
+        user_id = user_data.get("user_id") 
+
+        if not filename.startswith(f"{username}_"):
+            api_errors_total.labels(endpoint='/video/<filename>', error_type='unauthorized').inc()
+            return jsonify({"message": "Unauthorized"}), 401
+
+        try:
+            if user_id:
+                # Измеряем время операции с БД
+                db_start = time.time()
+                video = db_manager.get_video_by_s3_key(filename)
+                db_operation_latency.labels(operation='get', table='videos').observe(time.time() - db_start)
+                
+                if video and str(video['user_id']) != user_id:
+                    api_errors_total.labels(endpoint='/video/<filename>', error_type='unauthorized').inc()
+                    return jsonify({"message": "Unauthorized"}), 401
+            
+            logger.info(f"Запрошено видео: {filename}")
+            
+            # Измеряем время операции с MinIO
+            minio_start = time.time()
+            video_url = storage.get_presigned_url(filename)
+            minio_operation_latency.labels(operation_type='get_presigned_url').observe(time.time() - minio_start)
+            
+            if video_url:
+                logger.info(f"Получена временная ссылка из MinIO для {filename}")
+                
+                # Инкрементируем счетчики просмотров видео
+                video_views_total.inc()
+                video_operations_total.labels(operation_type='view', status='success').inc()
+               
+                # Измеряем размер ответа
+                response = redirect(video_url) if request.args.get('direct') else jsonify({"url": video_url})
+                if not request.args.get('direct'):  # Измеряем только для JSON ответов
+                    api_response_size_bytes.labels(endpoint='/video/<filename>').observe(len(response.get_data(as_text=True)))
+                
+                # Общее время обработки запроса
+                api_request_duration = time.time() - start_time
+                logger.debug(f"Время обработки запроса video/{filename}: {api_request_duration:.4f} сек")
+                
+                return response, 200
+            else:
+                logger.error(f"Не удалось получить временную ссылку из MinIO для {filename}")
+                video_operations_total.labels(operation_type='view', status='error_not_found').inc()
+                api_errors_total.labels(endpoint='/video/<filename>', error_type='minio_error').inc()
+                return jsonify({"error": "Video not found"}), 404
+        except Exception as e:
+            logger.error(f"Ошибка при получении видео: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            video_operations_total.labels(operation_type='view', status='error_exception').inc()
+            api_errors_total.labels(endpoint='/video/<filename>', error_type='exception').inc()
+            return jsonify({"error": str(e)}), 500
     except Exception as e:
-        logger.error(f"Ошибка при получении видео: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
+        api_errors_total.labels(endpoint='/video/<filename>', error_type='auth_exception').inc()
+        raise e
 
 
 @bp.route("/video/<path:filename>/url")
@@ -277,42 +433,84 @@ def get_video_url(filename):
 @bp.route("/videos", methods=["GET"])
 @token_required
 def get_videos():
-    token = request.headers.get("Authorization").split(" ")[1]
-    user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    username = user_data["user"]
-    user_id = user_data.get("user_id") 
-
+    start_time = time.time()  # Начало измерения времени выполнения
+    
     try:
-        videos = []
-        
-        if user_id:
-            db_videos = db_manager.get_user_videos(user_id)
-            if db_videos:
-                for video in db_videos:
-                    s3_key = video['s3_key']
-                    original_name = "_".join(s3_key.split("_")[3:]) if s3_key.count("_") >= 3 else s3_key
+        token = request.headers.get("Authorization").split(" ")[1]
+        user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username = user_data["user"]
+        user_id = user_data.get("user_id") 
+
+        try:
+            videos = []
+            
+            if user_id:
+                # Измеряем время операции с БД
+                db_start = time.time()
+                db_videos = db_manager.get_user_videos(user_id)
+                db_operation_latency.labels(operation='get', table='videos').observe(time.time() - db_start)
+                
+                if db_videos:
+                    weapons_count = 0  # Для подсчета оружия/ножей в видео
                     
-                    videos.append({
-                        "filename": s3_key,
-                        "original_name": original_name,
-                        "upload_time": video['upload_time'].isoformat(),
-                        "status": video['status'],
-                        "video_id": str(video['video_id']),
-                        "weapon_detected": video.get('weapon_detected', False)
-                    })
-        
-        minio_videos = storage.list_user_videos(username)
-        
-        if minio_videos:
-            db_filenames = [v['filename'] for v in videos]
-            for video in minio_videos:
-                if video['filename'] not in db_filenames:
-                    videos.append(video)
-        
-        return jsonify(videos)
+                    for video in db_videos:
+                        s3_key = video['s3_key']
+                        original_name = "_".join(s3_key.split("_")[3:]) if s3_key.count("_") >= 3 else s3_key
+                        
+                        videos.append({
+                            "filename": s3_key,
+                            "original_name": original_name,
+                            "upload_time": video['upload_time'].isoformat(),
+                            "status": video['status'],
+                            "video_id": str(video['video_id']),
+                            "weapon_detected": video.get('weapon_detected', False)
+                        })
+                        
+                        # Учитываем видео с обнаруженным оружием для бизнес-метрики
+                        if video.get('weapon_detected', False):
+                            weapons_count += 1
+                    
+                    # Обновляем бизнес-метрики
+                    if db_videos:
+                        # Среднее количество видео с оружием на общее количество видео
+                        weapons_ratio = weapons_count / len(db_videos)
+                        weapons_detected_per_video.set(weapons_ratio)
+            
+            # Измеряем время операции с MinIO
+            minio_start = time.time()
+            minio_videos = storage.list_user_videos(username)
+            minio_operation_latency.labels(operation_type='list_videos').observe(time.time() - minio_start)
+            
+            if minio_videos:
+                db_filenames = [v['filename'] for v in videos]
+                for video in minio_videos:
+                    if video['filename'] not in db_filenames:
+                        videos.append(video)
+            
+            # Обновляем метрику среднего количества видео на пользователя
+            if videos:
+                videos_per_user.set(len(videos))
+                
+            # Инкрементируем счетчик операций с видео
+            video_operations_total.labels(operation_type='list', status='success').inc()
+            
+            # Измеряем размер ответа
+            response = jsonify(videos)
+            api_response_size_bytes.labels(endpoint='/videos').observe(len(response.get_data(as_text=True)))
+            
+            # Общее время обработки запроса
+            api_request_duration = time.time() - start_time
+            logger.debug(f"Время обработки запроса /videos: {api_request_duration:.4f} сек")
+            
+            return response
+        except Exception as e:
+            logger.error(f"Ошибка при получении списка видео: {str(e)}")
+            video_operations_total.labels(operation_type='list', status='error_exception').inc()
+            api_errors_total.labels(endpoint='/videos', error_type='exception').inc()
+            return jsonify({"error": str(e)}), 500
     except Exception as e:
-        logger.error(f"Ошибка при получении списка видео: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        api_errors_total.labels(endpoint='/videos', error_type='auth_exception').inc()
+        raise e
 
 
 @bp.route("/videos/<filename>/logs", methods=["GET"])
@@ -355,82 +553,150 @@ def get_video_logs(filename):
 @bp.route("/videos/<filename>", methods=["DELETE"])
 @token_required
 def delete_video_route(filename):
-    token = request.headers.get("Authorization").split(" ")[1]
-    user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    username = user_data["user"]
-    user_id = user_data.get("user_id") 
-
-    if not filename.startswith(f"{username}_"):
-        return jsonify({"error": "Unauthorized"}), 401
-
+    start_time = time.time()  # Начало измерения времени выполнения
+    
     try:
-        deleted_from_db = False
-        
-        if user_id:
-            video_data = db_manager.get_video_by_s3_key(filename)
-            if video_data:
-                success, result = db_manager.delete_video(video_data['video_id'], user_id)
-                if success:
-                    deleted_from_db = True
-                    logger.info(f"Видео {filename} удалено из базы данных")
-        
-        success = storage.delete_objects(filename, f"{filename}.json")
-            
-        if not success and not deleted_from_db:
-            return jsonify({"error": "Failed to delete video"}), 500
-        
+        token = request.headers.get("Authorization").split(" ")[1]
+        user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username = user_data["user"]
+        user_id = user_data.get("user_id") 
 
-        return jsonify({"message": "Successfully deleted"})
+        if not filename.startswith(f"{username}_"):
+            video_operations_total.labels(operation_type='delete', status='error_unauthorized').inc()
+            api_errors_total.labels(endpoint='/videos/<filename>/delete', error_type='unauthorized').inc()
+            return jsonify({"error": "Unauthorized"}), 401
+
+        try:
+            deleted_from_db = False
+            
+            if user_id:
+                # Измеряем время операции с БД
+                db_start = time.time()
+                video_data = db_manager.get_video_by_s3_key(filename)
+                db_operation_latency.labels(operation='get', table='videos').observe(time.time() - db_start)
+                
+                if video_data:
+                    # Измеряем время операции удаления из БД
+                    db_start = time.time()
+                    success, result = db_manager.delete_video(video_data['video_id'], user_id)
+                    db_operation_latency.labels(operation='delete', table='videos').observe(time.time() - db_start)
+                    
+                    if success:
+                        deleted_from_db = True
+                        logger.info(f"Видео {filename} удалено из базы данных")
+            
+            # Измеряем время операции с MinIO
+            minio_start = time.time()
+            success = storage.delete_objects(filename, f"{filename}.json")
+            minio_operation_latency.labels(operation_type='delete_objects').observe(time.time() - minio_start)
+                
+            if not success and not deleted_from_db:
+                video_operations_total.labels(operation_type='delete', status='error_storage').inc()
+                api_errors_total.labels(endpoint='/videos/<filename>/delete', error_type='storage_error').inc()
+                return jsonify({"error": "Failed to delete video"}), 500
+            
+            # Инкрементируем счетчик успешных операций удаления
+            video_operations_total.labels(operation_type='delete', status='success').inc()
+            
+            # Общее время обработки запроса
+            api_request_duration = time.time() - start_time
+            logger.debug(f"Время обработки запроса DELETE /videos/{filename}: {api_request_duration:.4f} сек")
+
+            return jsonify({"message": "Successfully deleted"})
+        except Exception as e:
+            logger.error(f"Ошибка при удалении видео: {str(e)}")
+            video_operations_total.labels(operation_type='delete', status='error_exception').inc()
+            api_errors_total.labels(endpoint='/videos/<filename>/delete', error_type='exception').inc()
+            return jsonify({"error": str(e)}), 500
     except Exception as e:
-        logger.error(f"Ошибка при удалении видео: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        api_errors_total.labels(endpoint='/videos/<filename>/delete', error_type='auth_exception').inc()
+        raise e
 
 
 @bp.route("/videos/<filename>", methods=["PUT"])
 @token_required
 def update_video(filename):
-    token = request.headers.get("Authorization").split(" ")[1]
-    user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    username = user_data["user"]
-    user_id = user_data.get("user_id") 
-
-    data = request.get_json()
-    new_name = data.get("new_name")
-
-    if not new_name:
-        return jsonify({"error": "New name is required"}), 400
-
-    if not filename.startswith(f"{username}_"):
-        return jsonify({"error": "Unauthorized"}), 401
-
+    start_time = time.time()  # Начало измерения времени выполнения
+    
     try:
-        parts = filename.split("_")
-        if len(parts) < 4:
-            return jsonify({"error": "Invalid filename format"}), 400
+        token = request.headers.get("Authorization").split(" ")[1]
+        user_data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username = user_data["user"]
+        user_id = user_data.get("user_id") 
 
-        new_filename = f"{parts[0]}_{parts[1]}_{parts[2]}_{new_name}"
-        
-        updated_in_db = False
-        if user_id:
-            video_data = db_manager.get_video_by_s3_key(filename)
-            if video_data:
-                success, error = db_manager.rename_video(
-                    video_data['video_id'], 
-                    user_id, 
-                    new_filename
-                )
-                
-                if success:
-                    updated_in_db = True
-                    logger.info(f"Обновлено имя видео в БД: {filename} -> {new_filename}")
-                else:
-                    logger.error(f"Ошибка при обновлении имени видео в БД: {error}")
+        data = request.get_json()
+        new_name = data.get("new_name")
 
-        result = storage.rename_object(storage.video_bucket, filename, new_filename)
-        
-        storage.rename_object(storage.log_bucket, f"{filename}.json", f"{new_filename}.json")
+        if not new_name:
+            video_operations_total.labels(operation_type='rename', status='error_invalid_input').inc()
+            return jsonify({"error": "New name is required"}), 400
+
+        if not filename.startswith(f"{username}_"):
+            video_operations_total.labels(operation_type='rename', status='error_unauthorized').inc()
+            api_errors_total.labels(endpoint='/videos/<filename>/rename', error_type='unauthorized').inc()
+            return jsonify({"error": "Unauthorized"}), 401
+
+        try:
+            parts = filename.split("_")
+            if len(parts) < 4:
+                video_operations_total.labels(operation_type='rename', status='error_invalid_filename').inc()
+                return jsonify({"error": "Invalid filename format"}), 400
+
+            new_filename = f"{parts[0]}_{parts[1]}_{parts[2]}_{new_name}"
             
-        return jsonify({"message": "Video renamed successfully", "new_filename": new_filename})
+            updated_in_db = False
+            if user_id:
+                # Измеряем время операции с БД
+                db_start = time.time()
+                video_data = db_manager.get_video_by_s3_key(filename)
+                db_operation_latency.labels(operation='get', table='videos').observe(time.time() - db_start)
+                
+                if video_data:
+                    # Измеряем время операции обновления в БД
+                    db_start = time.time()
+                    success, error = db_manager.rename_video(
+                        video_data['video_id'], 
+                        user_id, 
+                        new_filename
+                    )
+                    db_operation_latency.labels(operation='update', table='videos').observe(time.time() - db_start)
+                    
+                    if success:
+                        updated_in_db = True
+                        logger.info(f"Обновлено имя видео в БД: {filename} -> {new_filename}")
+                    else:
+                        logger.error(f"Ошибка при обновлении имени видео в БД: {error}")
+                        video_operations_total.labels(operation_type='rename', status='error_db').inc()
+                        api_errors_total.labels(endpoint='/videos/<filename>/rename', error_type='db_error').inc()
+
+            # Измеряем время операции с MinIO для переименования видео
+            minio_start = time.time()
+            result = storage.rename_object(storage.video_bucket, filename, new_filename)
+            minio_operation_latency.labels(operation_type='rename_object').observe(time.time() - minio_start)
+            
+            # Измеряем время операции с MinIO для переименования лога
+            minio_start = time.time()
+            storage.rename_object(storage.log_bucket, f"{filename}.json", f"{new_filename}.json")
+            minio_operation_latency.labels(operation_type='rename_object').observe(time.time() - minio_start)
+            
+            # Инкрементируем счетчик успешных операций переименования
+            video_operations_total.labels(operation_type='rename', status='success').inc()
+            
+            # Общее время обработки запроса
+            api_request_duration = time.time() - start_time
+            logger.debug(f"Время обработки запроса PUT /videos/{filename}: {api_request_duration:.4f} сек")
+                
+            return jsonify({"message": "Video renamed successfully", "new_filename": new_filename})
+        except Exception as e:
+            logger.error(f"Ошибка при переименовании видео: {str(e)}")
+            video_operations_total.labels(operation_type='rename', status='error_exception').inc()
+            api_errors_total.labels(endpoint='/videos/<filename>/rename', error_type='exception').inc()
+            return jsonify({"error": str(e)}), 500
     except Exception as e:
-        logger.error(f"Ошибка при переименовании видео: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        api_errors_total.labels(endpoint='/videos/<filename>/rename', error_type='auth_exception').inc()
+        raise e
+
+
+@bp.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"}), 200

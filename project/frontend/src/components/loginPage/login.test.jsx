@@ -38,7 +38,7 @@ describe('Login Component', () => {
 
         await waitFor(() => {
             expect(axiosInstance.post).toHaveBeenCalledWith(
-                'http://127.0.0.1:5174/login',
+                '/login',
                 { username: 'testuser', password: 'password123' }
             );
         });

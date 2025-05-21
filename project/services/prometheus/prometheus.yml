@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s # Интервал сбора метрик
+  evaluation_interval: 15s # Интервал для правил оценки
+  scrape_timeout: 10s # Таймаут для запросов
+
+# Настройки Alertmanager (опционально)
+# alerting:
+#   alertmanagers:
+#   - static_configs:
+#     - targets:
+#        - alertmanager:9093
+
+# Правила оценки для алертов (опционально)
+# rule_files:
+#   - "alert_rules.yml"
+
+# Конфигурация для сбора метрик
+scrape_configs:
+  # Собираем метрики самого Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Сбор метрик из бэкенда 
+  - job_name: 'backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:5174']
+    
+  # Сбор метрик из Grafana
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+
+  # Дополнительно: сбор метрик из node_exporter (если будет установлен)
+  # - job_name: 'node_exporter'
+  #   static_configs:
+  #     - targets: ['node_exporter:9100']

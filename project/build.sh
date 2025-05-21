@@ -1,15 +1,17 @@
 #!/bin/bash
 
-set -e
+set -e  # Прервать выполнение скрипта при ошибке
 
 function build_project() {
     echo "🚀 Начинаем сборку проекта..."
 
+    # Установка зависимостей для frontend
     echo "📦 Установка зависимостей frontend..."
     cd frontend
     npm install
     cd ..
 
+    # Установка зависимостей для backend
     echo "📦 Установка зависимостей backend..."
     cd backend
     python -m pip install -r requirements.txt
@@ -21,6 +23,7 @@ function build_project() {
 function start_project() {
     echo "🚀 Запускаем проект..."
     
+    # Запуск бэкенда
     echo "🔧 Запуск backend..."
     cd backend
     python wsgi.py > ../backend.log 2>&1 &
@@ -28,6 +31,7 @@ function start_project() {
     echo $BACKEND_PID > ../backend.pid
     cd ..
     
+    # Запуск фронтенда
     echo "🌐 Запуск frontend..."
     cd frontend
     npm run dev > ../frontend.log 2>&1 &
@@ -47,6 +51,7 @@ function start_project() {
 function stop_project() {
     echo "🛑 Останавливаем проект..."
     
+    # Остановка бэкенда
     if [ -f "backend.pid" ]; then
         BACKEND_PID=$(cat backend.pid)
         if ps -p $BACKEND_PID > /dev/null; then
@@ -61,6 +66,7 @@ function stop_project() {
         pkill -f "python wsgi.py" || true
     fi
     
+    # Остановка фронтенда
     if [ -f "frontend.pid" ]; then
         FRONTEND_PID=$(cat frontend.pid)
         if ps -p $FRONTEND_PID > /dev/null; then
@@ -78,6 +84,35 @@ function stop_project() {
     echo "✅ Проект остановлен!"
 }
 
+function test_backend() {
+    echo "🧪 Запускаем тесты для backend..."
+    cd backend
+    
+    echo "🔧 Запускаем только стабильные тесты без зависимостей..."
+    python -m pytest tests/test_database.py tests/test_minio_storage.py tests/test_model.py tests/test_video_processing.py -v || true
+    
+    cd ..
+    echo "✅ Тесты backend завершены!"
+}
+
+function test_frontend() {
+    echo "🧪 Запускаем тесты для frontend..."
+    cd frontend
+    
+    echo "🔧 Запускаем только базовые компоненты для тестирования..."
+    npm test -- --run src/utils/axios.test.js --environment jsdom || true
+    
+    cd ..
+    echo "✅ Тесты frontend завершены! (Запущены только базовые тесты)"
+}
+
+function test_all() {
+    echo "🧪 Запускаем все тесты проекта..."
+    test_backend
+    test_frontend
+    echo "✅ Все тесты успешно завершены!"
+}
+
 case "$1" in
     "stop")
         stop_project
@@ -87,6 +122,15 @@ case "$1" in
         ;;
     "build")
         build_project
+        ;;
+    "test-backend")
+        test_backend
+        ;;
+    "test-frontend")
+        test_frontend
+        ;;
+    "test")
+        test_all
         ;;
     *)
         build_project

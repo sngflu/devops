@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: app-namespace
+data:
+  USE_MINIO: "true"
+  DB_HOST: "postgres"
+  MINIO_ENDPOINT: "51.250.74.197:30900"
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  MINIO_SECURE: "false"
+  MODEL_PATH: "/app/app/utils/yolov8nv2_e200_bs16.pt"
+  POSTGRES_USER: "pguser"
+  POSTGRES_PASSWORD: "pgpassword"
+  POSTGRES_DB: "pgdatabase"
+  DB_PORT: "5432"
+  DB_USER: "pguser"
+  DB_PASSWORD: "pgpassword"
+  DB_NAME: "pgdatabase"
+  DEBUG:

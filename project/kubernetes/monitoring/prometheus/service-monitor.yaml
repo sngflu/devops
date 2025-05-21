@@ -1,0 +1,60 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: app-service-monitor
+  namespace: app-namespace
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      monitoring: enabled
+  namespaceSelector:
+    matchNames:
+      - app-namespace
+  endpoints:
+  - port: http
+    interval: 15s
+    path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-service-monitor
+  namespace: app-namespace
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  namespaceSelector:
+    matchNames:
+      - app-namespace
+  endpoints:
+  - port: http
+    interval: 15s
+    path: /metrics
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'http_request_duration_seconds.*'
+      action: keep
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend-service-monitor
+  namespace: app-namespace
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  namespaceSelector:
+    matchNames:
+      - app-namespace
+  endpoints:
+  - port: http
+    interval: 15s
+    path: /metrics 
