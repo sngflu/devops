@@ -40,6 +40,10 @@ apply_manifests() {
 # Основные параметры
 NAMESPACE="lab4-app"
 
+# Удаляем существующие PVC
+echo -e "${YELLOW}Удаление существующих PVC...${NC}"
+kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0
+
 # Создаем PersistentVolume для Minio
 echo -e "${YELLOW}Создание PersistentVolume для Minio...${NC}"
 kubectl apply -f minio/pv.yaml || handle_error "Ошибка создания PV для Minio"
@@ -47,6 +51,14 @@ kubectl apply -f minio/pv.yaml || handle_error "Ошибка создания PV
 # Создаем PersistentVolume для Postgres
 echo -e "${YELLOW}Создание PersistentVolume для Postgres...${NC}"
 kubectl apply -f postgres/pv.yaml || handle_error "Ошибка создания PV для Postgres"
+
+# Создаем PersistentVolume для Prometheus
+echo -e "${YELLOW}Создание PersistentVolume для Prometheus...${NC}"
+kubectl apply -f monitoring/prometheus/pv.yaml || handle_error "Ошибка создания PV для Prometheus"
+
+# Создаем PersistentVolume для Grafana
+echo -e "${YELLOW}Создание PersistentVolume для Grafana...${NC}"
+kubectl apply -f monitoring/grafana/pv.yaml || handle_error "Ошибка создания PV для Grafana"
 
 # Разворачиваем Minio
 echo -e "${YELLOW}Развертывание Minio...${NC}"
