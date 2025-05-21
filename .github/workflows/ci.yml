@@ -346,8 +346,8 @@ jobs:
 
       - name: Run Services Setup Script
         run: |
-          cd project
-          ./kubernetes/setup-services.sh
+          cd project/kubernetes
+          ./setup-services.sh
 
   telegram-notification:
     needs: [deploy, deploy-services]
