@@ -22,6 +22,24 @@ run_with_timeout() {
     timeout $timeout bash -c "$command" || handle_error "Таймаут выполнения: $description"
 }
 
+# Функция для ожидания завершения подов
+wait_for_pods_deletion() {
+    local namespace=$1
+    local timeout=60
+    local interval=5
+    
+    echo -e "${YELLOW}Ожидание завершения подов в namespace $namespace...${NC}"
+    for ((i=0; i<timeout; i+=interval)); do
+        if ! kubectl get pods -n $namespace 2>/dev/null | grep -q .; then
+            echo -e "${GREEN}Все поды завершены${NC}"
+            return 0
+        fi
+        echo -e "${YELLOW}Ожидание завершения подов... (${i}s)${NC}"
+        sleep $interval
+    done
+    handle_error "Таймаут ожидания завершения подов"
+}
+
 # Проверка наличия kubectl
 if ! command -v kubectl &> /dev/null; then
     handle_error "kubectl не установлен"
@@ -71,8 +89,7 @@ echo -e "${YELLOW}Удаление всех подов в namespace $NAMESPACE..
 run_with_timeout 30 "kubectl delete pods --all -n $NAMESPACE --force --grace-period=0" "Удаление подов"
 
 # Ждем завершения подов
-echo -e "${YELLOW}Ожидание завершения подов...${NC}"
-run_with_timeout 30 "kubectl wait --for=delete pod --all -n $NAMESPACE --timeout=60s" "Ожидание завершения подов"
+wait_for_pods_deletion $NAMESPACE
 
 # Удаляем существующие PVC
 echo -e "${YELLOW}Удаление существующих PVC...${NC}"
