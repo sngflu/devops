@@ -2,7 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: backend-hpa
-  namespace: app-namespace
+  namespace: lab4-app
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -33,8 +33,3 @@ spec:
       - type: Percent
         value: 100
         periodSeconds: 15
-
-
-
-#kubectl get hpa -n app-namespace
-#kubectl get hpa backend-hpa -n app-namespace -w

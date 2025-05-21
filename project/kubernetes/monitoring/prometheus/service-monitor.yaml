@@ -2,7 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: app-service-monitor
-  namespace: app-namespace
+  namespace: lab4-app
   labels:
     app: prometheus
 spec:
@@ -11,7 +11,7 @@ spec:
       monitoring: enabled
   namespaceSelector:
     matchNames:
-      - app-namespace
+      - lab4-app
   endpoints:
   - port: http
     interval: 15s
@@ -21,7 +21,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: backend-service-monitor
-  namespace: app-namespace
+  namespace: lab4-app
   labels:
     app: prometheus
 spec:
@@ -30,7 +30,7 @@ spec:
       app: backend
   namespaceSelector:
     matchNames:
-      - app-namespace
+      - lab4-app
   endpoints:
   - port: http
     interval: 15s
@@ -44,7 +44,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: frontend-service-monitor
-  namespace: app-namespace
+  namespace: lab4-app
   labels:
     app: prometheus
 spec:
@@ -53,7 +53,7 @@ spec:
       app: frontend
   namespaceSelector:
     matchNames:
-      - app-namespace
+      - lab4-app
   endpoints:
   - port: http
     interval: 15s

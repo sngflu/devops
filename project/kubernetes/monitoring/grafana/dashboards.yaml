@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
-  namespace: app-namespace
+  namespace: lab4-app
   labels:
     grafana_dashboard: "1"
 data:
@@ -16,4 +16,4 @@ data:
         disableDeletion: false
         editable: true
         options:
-          path: /var/lib/grafana/dashboards 
+          path: /var/lib/grafana/dashboards

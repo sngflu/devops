@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: app-namespace
+  namespace: lab4-app
 data:
   prometheus.yml: |
     global:

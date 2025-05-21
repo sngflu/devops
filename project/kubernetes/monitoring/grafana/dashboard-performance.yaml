@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-performance
-  namespace: app-namespace
+  namespace: lab4-app
   labels:
     grafana_dashboard: "true"
 data:
@@ -51,7 +51,7 @@ data:
           "datasource": "Prometheus",
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"app-namespace\"}[5m])) by (pod)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"lab4-app\"}[5m])) by (pod)",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }
@@ -65,7 +65,7 @@ data:
           "datasource": "Prometheus",
           "targets": [
             {
-              "expr": "container_memory_usage_bytes{namespace=\"app-namespace\"}",
+              "expr": "container_memory_usage_bytes{namespace=\"lab4-app\"}",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }

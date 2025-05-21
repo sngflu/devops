@@ -9,4 +9,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus
-  namespace: app-namespace 
+  namespace: lab4-app

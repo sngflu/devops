@@ -16,8 +16,8 @@ if [ $? -ne 0 ]; then
 fi
 
 # Создаем namespace, если он еще не существует
-if ! kubectl get ns app-namespace > /dev/null 2>&1; then
-  echo -e "${YELLOW}Создаем namespace app-namespace...${NC}"
+if ! kubectl get ns lab4-app > /dev/null 2>&1; then
+  echo -e "${YELLOW}Создаем namespace lab4-app...${NC}"
   kubectl apply -f /home/terra/devops/project/kubernetes/namespace.yaml
   echo -e "${GREEN}Namespace создан!${NC}"
 fi
@@ -78,30 +78,30 @@ sudo chmod -R 777 /mnt/data/postgres /mnt/data/minio
 
 # Применяем ресурсы Kubernetes
 echo -e "${YELLOW}Запускаем PostgreSQL...${NC}"
-kubectl apply -f /home/terra/devops/project/kubernetes/postgres -n app-namespace
+kubectl apply -f /home/terra/devops/project/kubernetes/postgres -n lab4-app
 
 echo -e "${YELLOW}Запускаем MinIO...${NC}"
-kubectl apply -f /home/terra/devops/project/kubernetes/minio -n app-namespace
+kubectl apply -f /home/terra/devops/project/kubernetes/minio -n lab4-app
 
 echo -e "${YELLOW}Запускаем бэкенд с HPA...${NC}"
-kubectl apply -f /home/terra/devops/project/kubernetes/backend -n app-namespace
+kubectl apply -f /home/terra/devops/project/kubernetes/backend -n lab4-app
 
 echo -e "${YELLOW}Запускаем фронтенд...${NC}"
-kubectl apply -f /home/terra/devops/project/kubernetes/frontend -n app-namespace
+kubectl apply -f /home/terra/devops/project/kubernetes/frontend -n lab4-app
 
 echo -e "${YELLOW}Настраиваем Ingress...${NC}"
-kubectl apply -f /home/terra/devops/project/kubernetes/ingress.yaml -n app-namespace
+kubectl apply -f /home/terra/devops/project/kubernetes/ingress.yaml -n lab4-app
 
 # Ждем, пока все поды запустятся
 echo -e "${YELLOW}Ожидаем запуска всех компонентов...${NC}"
-kubectl wait --for=condition=Ready pods --all -n app-namespace --timeout=300s || true
+kubectl wait --for=condition=Ready pods --all -n lab4-app --timeout=300s || true
 
 echo -e "${GREEN}Компоненты запущены!${NC}"
 
 # Получаем информацию о доступе
 NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-BACKEND_PORT=$(kubectl get svc backend -n app-namespace -o jsonpath='{.spec.ports[0].nodePort}')
-FRONTEND_PORT=$(kubectl get svc frontend -n app-namespace -o jsonpath='{.spec.ports[0].nodePort}')
+BACKEND_PORT=$(kubectl get svc backend -n lab4-app -o jsonpath='{.spec.ports[0].nodePort}')
+FRONTEND_PORT=$(kubectl get svc frontend -n lab4-app -o jsonpath='{.spec.ports[0].nodePort}')
 
 echo -e "${GREEN}"
 echo "========================================================================================="
@@ -112,10 +112,10 @@ echo "==========================================================================
 echo -e "${NC}"
 
 echo -e "${YELLOW}Статус подов:${NC}"
-kubectl get pods -n app-namespace
+kubectl get pods -n lab4-app
 
 echo -e "${YELLOW}Статус HPA:${NC}"
-kubectl get hpa -n app-namespace
+kubectl get hpa -n lab4-app
 
 echo -e "${GREEN}"
 echo "Для тестирования автомасштабирования вы можете использовать:"

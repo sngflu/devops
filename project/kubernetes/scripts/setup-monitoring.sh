@@ -16,8 +16,8 @@ if [ $? -ne 0 ]; then
 fi
 
 # Создаем namespace, если он еще не существует
-if ! kubectl get ns app-namespace > /dev/null 2>&1; then
-  echo -e "${YELLOW}Создаем namespace app-namespace...${NC}"
+if ! kubectl get ns lab4-app > /dev/null 2>&1; then
+  echo -e "${YELLOW}Создаем namespace lab4-app...${NC}"
   kubectl apply -f /home/terra/devops/project/kubernetes/namespace.yaml
   echo -e "${GREEN}Namespace создан!${NC}"
 fi
@@ -59,13 +59,13 @@ echo -e "${GREEN}Мониторинг настроен и запущен!${NC}"
 
 # Ждем, пока все поды запустятся
 echo -e "${YELLOW}Ожидаем запуска всех компонентов мониторинга...${NC}"
-kubectl wait --for=condition=Ready pods -l app=prometheus -n app-namespace --timeout=120s || true
-kubectl wait --for=condition=Ready pods -l app=grafana -n app-namespace --timeout=120s || true
+kubectl wait --for=condition=Ready pods -l app=prometheus -n lab4-app --timeout=120s || true
+kubectl wait --for=condition=Ready pods -l app=grafana -n lab4-app --timeout=120s || true
 
 # Получаем информацию о доступе
 NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-PROMETHEUS_PORT=$(kubectl get svc prometheus -n app-namespace -o jsonpath='{.spec.ports[0].nodePort}')
-GRAFANA_PORT=$(kubectl get svc grafana -n app-namespace -o jsonpath='{.spec.ports[0].nodePort}')
+PROMETHEUS_PORT=$(kubectl get svc prometheus -n lab4-app -o jsonpath='{.spec.ports[0].nodePort}')
+GRAFANA_PORT=$(kubectl get svc grafana -n lab4-app -o jsonpath='{.spec.ports[0].nodePort}')
 
 echo -e "${GREEN}"
 echo "========================================================================================="

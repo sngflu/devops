@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-datasources
-  namespace: app-namespace
+  namespace: lab4-app
 data:
   prometheus.yaml: |-
     apiVersion: 1
@@ -17,7 +17,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards-providers
-  namespace: app-namespace
+  namespace: lab4-app
 data:
   dashboards.yaml: |-
     apiVersion: 1
@@ -35,7 +35,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-pod-requests
-  namespace: app-namespace
+  namespace: lab4-app
 data:
   pod-requests-dashboard.json: |-
     {
@@ -165,7 +165,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-detailed-pod-requests
-  namespace: app-namespace
+  namespace: lab4-app
 data:
   detailed-pod-requests-dashboard.json: |-
     {
@@ -309,7 +309,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboard-pod-performance
-  namespace: app-namespace
+  namespace: lab4-app
 data:
   pod-performance-dashboard.json: |-
     {
