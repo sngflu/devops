@@ -97,7 +97,7 @@ wait_for_pods_deletion $NAMESPACE
 
 # Удаляем существующие PV и PVC
 echo -e "${YELLOW}Удаление существующих PV и PVC...${NC}"
-run_with_timeout 30 "kubectl delete pv --all --force --grace-period=0" "Удаление PV"
+run_with_timeout 30 "kubectl delete pv grafana-pv-lab4 minio-pv-lab4 postgres-pv-lab4 prometheus-pv-lab4 --force --grace-period=0" "Удаление PV"
 run_with_timeout 30 "kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0" "Удаление PVC"
 
 # Создаем PVC для всех сервисов
