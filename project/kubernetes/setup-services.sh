@@ -99,6 +99,13 @@ wait_for_pods_deletion $NAMESPACE
 echo -e "${YELLOW}Удаление существующих PVC...${NC}"
 run_with_timeout 30 "kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0" "Удаление PVC"
 
+# Создаем PVC для всех сервисов
+echo -e "${YELLOW}Создание PVC для всех сервисов...${NC}"
+run_with_timeout 30 "kubectl apply -f minio/pvc.yaml" "Создание PVC для Minio"
+run_with_timeout 30 "kubectl apply -f postgres/pvc.yaml" "Создание PVC для Postgres"
+run_with_timeout 30 "kubectl apply -f monitoring/prometheus/pvc.yaml" "Создание PVC для Prometheus"
+run_with_timeout 30 "kubectl apply -f monitoring/grafana/pvc.yaml" "Создание PVC для Grafana"
+
 # Создаем PersistentVolume для Minio
 echo -e "${YELLOW}Создание PersistentVolume для Minio...${NC}"
 run_with_timeout 30 "kubectl apply -f minio/pv.yaml" "Создание PV для Minio"
