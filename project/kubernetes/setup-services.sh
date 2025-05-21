@@ -84,6 +84,10 @@ wait_for_pv() {
 # Основные параметры
 NAMESPACE="lab4-app"
 
+# Удаляем все деплойменты в namespace
+echo -e "${YELLOW}Удаление всех деплойментов в namespace $NAMESPACE...${NC}"
+run_with_timeout 30 "kubectl delete deployment --all -n $NAMESPACE --force --grace-period=0" "Удаление деплойментов"
+
 # Удаляем все поды в namespace
 echo -e "${YELLOW}Удаление всех подов в namespace $NAMESPACE...${NC}"
 run_with_timeout 30 "kubectl delete pods --all -n $NAMESPACE --force --grace-period=0" "Удаление подов"
