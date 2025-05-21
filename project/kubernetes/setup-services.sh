@@ -95,9 +95,10 @@ run_with_timeout 30 "kubectl delete pods --all -n $NAMESPACE --force --grace-per
 # Ждем завершения подов
 wait_for_pods_deletion $NAMESPACE
 
-# Удаляем существующие PVC
-echo -e "${YELLOW}Удаление существующих PVC...${NC}"
-run_with_timeout 30 "kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0" "Удаление PVC"
+# Удаляем существующие PV и PVC
+echo -e "${YELLOW}Удаление существующих PV и PVC...${NC}"
+run_with_timeout 30 "kubectl delete pv --all --force --grace-period=0" "Удаление PV"
+run_with_timeout 30 "kubectl delete pvc --all -n $NAMESPACE --force --grace-period=0" "Удаление PVC"
 
 # Создаем PVC для всех сервисов
 echo -e "${YELLOW}Создание PVC для всех сервисов...${NC}"
