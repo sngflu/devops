@@ -66,6 +66,14 @@ wait_for_pv() {
 # Основные параметры
 NAMESPACE="lab4-app"
 
+# Удаляем все поды в namespace
+echo -e "${YELLOW}Удаление всех подов в namespace $NAMESPACE...${NC}"
+run_with_timeout 30 "kubectl delete pods --all -n $NAMESPACE --force --grace-period=0" "Удаление подов"
+
+# Ждем завершения подов
+echo -e "${YELLOW}Ожидание завершения подов...${NC}"
+run_with_timeout 30 "kubectl wait --for=delete pod --all -n $NAMESPACE --timeout=60s" "Ожидание завершения подов"
+
 # Удаляем существующие PVC
 echo -e "${YELLOW}Удаление существующих PVC...${NC}"
 run_with_timeout 30 "kubectl delete pvc -n $NAMESPACE --all --force --grace-period=0" "Удаление PVC"
