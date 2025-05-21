@@ -18,8 +18,8 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              mkdir -p /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/grafana-pv-lab4 &&
-              chmod 777 /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/grafana-pv-lab4 &&
+              mkdir -p /mnt/k8s/grafana-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 &&
+              chmod 777 /mnt/k8s/grafana-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 &&
               sleep 3600
           volumeMounts:
             - name: host-path
