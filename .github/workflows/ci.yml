@@ -343,10 +343,14 @@ jobs:
 
       - name: Create PV directories
         run: |
-          # Создаем директории для PV
-          kubectl get nodes -o wide | grep -v NAME | awk '{print $6}' | while read node_ip; do
-            ssh -o StrictHostKeyChecking=no root@$node_ip "mkdir -p /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/grafana-pv-lab4 && chmod 777 /mnt/k8s/*-lab4"
-          done
+          # Применяем DaemonSet для создания директорий
+          kubectl apply -f project/kubernetes/scripts/create-pv-dirs.yaml
+          # Ждем пока поды запустятся
+          kubectl wait --for=condition=ready pod -l name=create-pv-dirs -n lab4-app --timeout=60s
+          # Даем время на создание директорий
+          sleep 10
+          # Удаляем DaemonSet
+          kubectl delete -f project/kubernetes/scripts/create-pv-dirs.yaml
 
       - name: Make setup script executable
         run: chmod +x project/kubernetes/setup-services.sh
