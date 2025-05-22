@@ -30,7 +30,281 @@ jobs:
             curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
           done
 
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Настройка Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Настройка доступа к проекту
+        run: |
+          # Копируем актуальный docker-compose.yml из директории project в корень
+          cp project/docker-compose.yml ./docker-compose.yml
+
+          # Удаляем устаревший атрибут version из docker-compose.yml
+          sed -i '/^version:/d' ./docker-compose.yml
+
+      - name: Сборка Docker образов
+        run: |
+          # Переходим в директорию project для доступа ко всем файлам проекта
+          cd project
+
+          # Собираем образы без запуска контейнеров
+          docker compose build --no-cache
+
+      - name: Сохранение образов как артефакты
+        run: |
+          # Сохраняем образы для последующих этапов
+          docker save $(docker images -q | grep -v "<none>" | head -n2) -o docker-images.tar
+
+      - name: Загрузка Docker образов как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: docker-images.tar
+          retention-days: 1
+
+  backend-test:
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Настройка Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Установка зависимостей бэкенда
+        run: |
+          cd project/backend
+          python -m pip install -r requirements.txt
+          # Устанавливаем pytest для запуска тестов
+          python -m pip install pytest pytest-cov
+
+      - name: Запуск тестов backend
+        run: |
+          cd project/backend
+          python -m pytest --cov=app --cov-report=xml -v
+
+      - name: Загрузка отчета о покрытии бэкенда
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: project/backend/coverage.xml
+          if-no-files-found: warn
+
+  frontend-test:
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Настройка Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: project/frontend/package-lock.json
+
+      - name: Установка зависимостей фронтенда
+        run: |
+          cd project/frontend
+          npm ci
+
+      - name: Запуск тестов frontend
+        run: |
+          cd project/frontend
+          npm test -- --coverage
+
+      - name: Загрузка отчета о покрытии фронтенда
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-report
+          path: project/frontend/coverage
+          if-no-files-found: warn
+
+  sonarqube-analysis:
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Установка Python и Node.js
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Установка SonarScanner
+        run: npm install -g sonarqube-scanner
+
+      - name: Загрузка отчёта покрытия backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: project/backend/
+
+      - name: Загрузка отчёта покрытия frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage-report
+          path: project/frontend/coverage
+
+      - name: Анализ backend (Python)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          cd project/backend
+          npx sonarqube-scanner \
+            -Dsonar.projectKey=backend \
+            -Dsonar.sources=app \
+            -Dsonar.exclusions=**/__pycache__/**,**/*.pyc,runs/**,storage/**,config/**,**/*.pt,**/__init__.py \
+            -Dsonar.tests=tests \
+            -Dsonar.test.exclusions=tests/**/__pycache__/**,tests/**/*.pyc \
+            -Dsonar.python.coverage.reportPaths=coverage.xml \
+            -Dsonar.coverage.exclusions=tests/**,wsgi.py,**/__init__.py \
+            -Dsonar.host.url=http://51.250.74.197:9002 \
+            -Dsonar.login=$SONAR_TOKEN
+
+      - name: Анализ frontend (JS)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          cd project/frontend
+          npx sonarqube-scanner \
+            -Dsonar.projectKey=frontend \
+            -Dsonar.sources=. \
+            -Dsonar.exclusions=tests/**,**/*.test.js,**/*.test.jsx,**/*.spec.js,**/*.mock.js,**/__mocks__/**,**/__snapshots__/**,node_modules/**,coverage/**,dist/**,public/**,transferring/** \
+            -Dsonar.tests=tests \
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+            -Dsonar.host.url=http://51.250.74.197:9002 \
+            -Dsonar.login=$SONAR_TOKEN
+
+      - name: Wait for Quality Gate status
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://51.250.74.197:9002
+        run: |
+          # Wait for analysis to complete in SonarQube
+          # Get the analysis ID from the previous step's output (if possible, otherwise rely on latest)
+          # For simplicity, let's just check project status repeatedly
+          echo "Waiting for Quality Gate status from SonarQube..."
+
+          # Check backend project
+          while : ; do
+            STATUS=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=backend" | jq -r '.projectStatus.status')
+            echo "Backend Quality Gate status: $STATUS"
+            if [[ "$STATUS" == "OK" ]]; then
+              echo "Backend Quality Gate Passed."
+              break
+            elif [[ "$STATUS" == "ERROR" || "$STATUS" == "WARN" ]]; then
+              echo "Backend Quality Gate Failed! Status: $STATUS"
+              exit 1
+            fi
+            sleep 10
+          done
+
+          # Check frontend project (assuming projectKey is 'frontend')
+          while : ; do
+            STATUS=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=frontend" | jq -r '.projectStatus.status')
+            echo "Frontend Quality Gate status: $STATUS"
+            if [[ "$STATUS" == "OK" ]]; then
+              echo "Frontend Quality Gate Passed."
+              break
+            elif [[ "$STATUS" == "ERROR" || "$STATUS" == "WARN" ]]; then
+              echo "Frontend Quality Gate Failed! Status: $STATUS"
+              exit 1
+            fi
+            sleep 10
+          done
+
+  publish:
+    needs: [sonarqube-analysis] # Теперь публикация зависит от успешного анализа SonarQube
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Логин в Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Установка Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Настройка проекта
+        run: |
+          # Переходим в директорию project и используем docker-compose оттуда
+          cd project
+
+          # Удаляем устаревший атрибут version из docker-compose.yml
+          sed -i '/^version:/d' docker-compose.yml
+
+      - name: Загрузка Docker образов
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+
+      - name: Загрузка образов в Docker
+        run: |
+          docker load -i docker-images.tar
+
+      - name: Извлечение метаданных (тегов, labels) для Backend
+        id: meta-backend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/project-backend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+            latest
+
+      - name: Сборка и публикация Backend Docker-образа
+        uses: docker/build-push-action@v4
+        with:
+          context: ./project/backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-backend:buildcache,mode=max
+
+      - name: Извлечение метаданных (тегов, labels) для Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/project-frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+            latest
+
+      - name: Сборка и публикация Frontend Docker-образа
+        uses: docker/build-push-action@v4
+        with:
+          context: ./project/frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-frontend:buildcache,mode=max
+
   deploy:
+    needs: [publish]
     runs-on: ubuntu-latest
 
     steps:
