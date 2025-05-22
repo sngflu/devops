@@ -6,12 +6,12 @@ metadata:
   labels:
     app: prometheus
 spec:
-  ports:
-  - port: 9090
-    targetPort: web
-      nodePort: 31903
-    protocol: TCP
-    name: http
+  type: NodePort
   selector:
     app: prometheus
-  type: NodePort
+  ports:
+    - port: 9090
+      targetPort: web
+      nodePort: 31903
+      protocol: TCP
+      name: http
