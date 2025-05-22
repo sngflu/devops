@@ -8,7 +8,6 @@ spec:
   selector:
     app: frontend
   ports:
-  - port: 80
-    targetPort: 80 
-    nodePort: 30173
-  type: NodePort 
+    - port: 80
+      targetPort: 80
+      nodePort: 30174
