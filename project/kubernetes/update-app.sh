@@ -51,9 +51,9 @@ update_app() {
         # Удаляем существующий сервис если он есть
         kubectl delete service $app_name -n $namespace --force --grace-period=0 2>/dev/null || true
         # Создаем деплоймент
-        kubectl apply -f $app_name/deployment.yaml
+        kubectl apply -f kubernetes/$app_name/deployment.yaml
         # Создаем сервис
-        kubectl apply -f $app_name/service.yaml
+        kubectl apply -f kubernetes/$app_name/service.yaml
     fi
 }
 

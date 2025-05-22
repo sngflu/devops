@@ -22,15 +22,25 @@ spec:
       initContainers:
         - name: wait-for-minio
           image: busybox
-          command: ['sh', '-c', 'until nc -z minio 9000; do echo waiting for minio; sleep 2; done']
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z minio 9000; do echo waiting for minio; sleep 2; done",
+            ]
 
         - name: wait-for-postgres
           image: busybox
-          command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done']
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done",
+            ]
 
       containers:
         - name: backend
-          image: sanchous1000/backend:prod-gunicorn-v3
+          image: sngflu/project-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5174

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: sanchous1000/frontend:prod-v3
+          image: sngflu/project-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
