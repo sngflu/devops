@@ -88,6 +88,8 @@ run_with_timeout 30 "kubectl apply -f minio/pvc.yaml" "Создание PVC дл
 run_with_timeout 30 "kubectl apply -f postgres/pvc.yaml" "Создание PVC для Postgres"
 run_with_timeout 30 "kubectl apply -f monitoring/prometheus/pvc.yaml" "Создание PVC для Prometheus"
 run_with_timeout 30 "kubectl apply -f monitoring/grafana/pvc.yaml" "Создание PVC для Grafana"
+# Добавляем создание PVC для хранилища бэкенда
+run_with_timeout 30 "kubectl apply -f storage-pvc.yaml" "Создание PVC для Storage"
 
 # Создаем PersistentVolume для Minio
 echo -e "${YELLOW}Создание PersistentVolume для Minio...${NC}"
@@ -112,6 +114,12 @@ echo -e "${YELLOW}Создание PersistentVolume для Grafana...${NC}"
 run_with_timeout 30 "kubectl apply -f monitoring/grafana/pv.yaml" "Создание PV для Grafana"
 # Ожидание привязки PV к PVC
 run_with_timeout 60 "kubectl wait --for=condition=bound pvc grafana-pvc -n $NAMESPACE --timeout=60s" "Ожидание привязки PVC grafana-pvc"
+
+# Добавляем создание PersistentVolume для Storage
+echo -e "${YELLOW}Создание PersistentVolume для Storage...${NC}"
+run_with_timeout 30 "kubectl apply -f storage-pv.yaml" "Создание PV для Storage"
+# Ожидание привязки PV к PVC
+run_with_timeout 60 "kubectl wait --for=condition=bound pvc storage-pvc -n $NAMESPACE --timeout=60s" "Ожидание привязки PVC storage-pvc"
 
 # Разворачиваем Minio
 echo -e "${YELLOW}Развертывание Minio...${NC}"
