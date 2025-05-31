@@ -63,24 +63,6 @@ apply_manifests() {
     done
 }
 
-# Функция для ожидания создания PV
-wait_for_pv() {
-    local pv_name=$1
-    local timeout=60
-    local interval=5
-    
-    echo -e "${YELLOW}Ожидание создания PV $pv_name...${NC}"
-    for ((i=0; i<timeout; i+=interval)); do
-        if kubectl get pv $pv_name &> /dev/null; then
-            echo -e "${GREEN}PV $pv_name создан${NC}"
-            return 0
-        fi
-        echo -e "${YELLOW}Ожидание создания PV $pv_name... (${i}s)${NC}"
-        sleep $interval
-    done
-    handle_error "Таймаут ожидания создания PV $pv_name"
-}
-
 # Основные параметры
 NAMESPACE="lab4-app"
 
@@ -110,22 +92,26 @@ run_with_timeout 30 "kubectl apply -f monitoring/grafana/pvc.yaml" "Создан
 # Создаем PersistentVolume для Minio
 echo -e "${YELLOW}Создание PersistentVolume для Minio...${NC}"
 run_with_timeout 30 "kubectl apply -f minio/pv.yaml" "Создание PV для Minio"
-wait_for_pv "minio-pv-lab4"
+# Ожидание привязки PV к PVC
+run_with_timeout 60 "kubectl wait --for=condition=bound pvc minio-pvc -n $NAMESPACE --timeout=60s" "Ожидание привязки PVC minio-pvc"
 
 # Создаем PersistentVolume для Postgres
 echo -e "${YELLOW}Создание PersistentVolume для Postgres...${NC}"
 run_with_timeout 30 "kubectl apply -f postgres/pv.yaml" "Создание PV для Postgres"
-wait_for_pv "postgres-pv-lab4"
+# Ожидание привязки PV к PVC
+run_with_timeout 60 "kubectl wait --for=condition=bound pvc postgres-pvc -n $NAMESPACE --timeout=60s" "Ожидание привязки PVC postgres-pvc"
 
 # Создаем PersistentVolume для Prometheus
 echo -e "${YELLOW}Создание PersistentVolume для Prometheus...${NC}"
 run_with_timeout 30 "kubectl apply -f monitoring/prometheus/pv.yaml" "Создание PV для Prometheus"
-wait_for_pv "prometheus-pv-lab4"
+# Ожидание привязки PV к PVC
+run_with_timeout 60 "kubectl wait --for=condition=bound pvc prometheus-storage-pvc -n $NAMESPACE --timeout=60s" "Ожидание привязки PVC prometheus-storage-pvc"
 
 # Создаем PersistentVolume для Grafana
 echo -e "${YELLOW}Создание PersistentVolume для Grafana...${NC}"
 run_with_timeout 30 "kubectl apply -f monitoring/grafana/pv.yaml" "Создание PV для Grafana"
-wait_for_pv "grafana-pv-lab4"
+# Ожидание привязки PV к PVC
+run_with_timeout 60 "kubectl wait --for=condition=bound pvc grafana-pvc -n $NAMESPACE --timeout=60s" "Ожидание привязки PVC grafana-pvc"
 
 # Разворачиваем Minio
 echo -e "${YELLOW}Развертывание Minio...${NC}"
