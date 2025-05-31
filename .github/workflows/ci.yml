@@ -173,7 +173,7 @@ jobs:
             -Dsonar.test.exclusions=tests/**/__pycache__/**,tests/**/*.pyc \
             -Dsonar.python.coverage.reportPaths=coverage.xml \
             -Dsonar.coverage.exclusions=tests/**,wsgi.py,**/__init__.py \
-            -Dsonar.host.url=http://51.250.74.197:9002 \
+            -Dsonar.host.url=http://89.169.142.40:9002 \
             -Dsonar.login=$SONAR_TOKEN
 
       - name: Анализ frontend (JS)
@@ -187,13 +187,13 @@ jobs:
             -Dsonar.exclusions=tests/**,**/*.test.js,**/*.test.jsx,**/*.spec.js,**/*.mock.js,**/__mocks__/**,**/__snapshots__/**,node_modules/**,coverage/**,dist/**,public/**,transferring/** \
             -Dsonar.tests=tests \
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-            -Dsonar.host.url=http://51.250.74.197:9002 \
+            -Dsonar.host.url=http://89.169.142.40:9002 \
             -Dsonar.login=$SONAR_TOKEN
 
       - name: Wait for Quality Gate status
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: http://51.250.74.197:9002
+          SONAR_HOST_URL: http://89.169.142.40:9002
         run: |
           # Wait for analysis to complete in SonarQube
           # Get the analysis ID from the previous step's output (if possible, otherwise rely on latest)

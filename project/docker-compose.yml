@@ -1,4 +1,4 @@
-version: '1'
+version: "1"
 
 services:
   # Backend сервис
@@ -14,7 +14,7 @@ services:
     environment:
       - USE_MINIO=true
       - DB_HOST=postgres
-      - MINIO_ENDPOINT=51.250.74.197:9000       #192.168.1.143:9000
+      - MINIO_ENDPOINT=89.169.142.40:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
       - MINIO_SECURE=false
@@ -78,7 +78,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./services/pgadmin/servers.json:/pgadmin4/servers.json
@@ -108,8 +108,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"  # API порт
-      - "9001:9001"  # Веб-консоль
+      - "9000:9000" # API порт
+      - "9001:9001" # Веб-консоль
     networks:
       - app-network
     healthcheck:
@@ -131,7 +131,7 @@ services:
     networks:
       - app-network
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - "--config.file=/etc/prometheus/prometheus.yml"
 
   # Grafana сервис
   grafana:

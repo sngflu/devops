@@ -9,7 +9,7 @@ spec:
   ingressClassName: nginx
   rules:
     # ► Frontend
-    - host: frontend.51.250.74.197.nip.io
+    - host: frontend.89.169.142.40.nip.io
       http:
         paths:
           - path: /
@@ -21,7 +21,7 @@ spec:
                   number: 80
 
     # ► Backend (API)
-    - host: api.51.250.74.197.nip.io
+    - host: api.89.169.142.40.nip.io
       http:
         paths:
           - path: /
@@ -33,7 +33,7 @@ spec:
                   number: 5174
 
     # ► Grafana
-    - host: grafana.51.250.74.197.nip.io
+    - host: grafana.89.169.142.40.nip.io
       http:
         paths:
           - path: /

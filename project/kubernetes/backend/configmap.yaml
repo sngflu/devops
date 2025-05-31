@@ -6,7 +6,7 @@ metadata:
 data:
   USE_MINIO: "true"
   DB_HOST: "postgres"
-  MINIO_ENDPOINT: "51.250.74.197:30900"
+  MINIO_ENDPOINT: "89.169.142.40:30900"
   MINIO_ACCESS_KEY: "minioadmin"
   MINIO_SECRET_KEY: "minioadmin"
   MINIO_SECURE: "false"

@@ -16,14 +16,14 @@ resource "yandex_compute_disk" "boot-disk-1" {
   name     = "boot-disk-1"
   type     = "network-hdd"
   zone     = "ru-central1-a"
-  size     = "30"
+  size     = "50"
   image_id = "fd86601pa1f50ta9dffg"
-  folder_id = "b1g3ljevgl8gifeo83pj"
+  folder_id = "b1gguctl7nrkgpu206h3"
 }
 
 resource "yandex_compute_instance" "vm-1" {
   name = "terraform1"
-  folder_id = "b1g3ljevgl8gifeo83pj"
+  folder_id = "b1gguctl7nrkgpu206h3"
 
   resources {
     cores  = 2
@@ -46,7 +46,7 @@ resource "yandex_compute_instance" "vm-1" {
 
 resource "yandex_vpc_network" "network-1" {
   name = "network1"
-  folder_id = "b1g3ljevgl8gifeo83pj"
+  folder_id = "b1gguctl7nrkgpu206h3"
 }
 
 resource "yandex_vpc_subnet" "subnet-1" {
@@ -54,7 +54,7 @@ resource "yandex_vpc_subnet" "subnet-1" {
   zone           = "ru-central1-a"
   network_id     = yandex_vpc_network.network-1.id
   v4_cidr_blocks = ["192.168.10.0/24"]
-  folder_id = "b1g3ljevgl8gifeo83pj"
+  folder_id = "b1gguctl7nrkgpu206h3"
 }
 
 output "internal_ip_address_vm_1" {
