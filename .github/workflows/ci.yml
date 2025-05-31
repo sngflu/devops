@@ -5,6 +5,13 @@ on:
     branches: [main, lab4]
   pull_request:
     branches: [main, lab4]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: "Пропустить сборку и тесты"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # telegram-start-notification:
@@ -32,6 +39,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.inputs.skip_build }}
 
     steps:
       - uses: actions/checkout@v3
@@ -69,6 +77,7 @@ jobs:
 
   backend-test:
     needs: [build]
+    if: ${{ !github.event.inputs.skip_build }}
     runs-on: ubuntu-latest
 
     steps:
@@ -101,6 +110,7 @@ jobs:
 
   frontend-test:
     needs: [build]
+    if: ${{ !github.event.inputs.skip_build }}
     runs-on: ubuntu-latest
 
     steps:
@@ -132,6 +142,7 @@ jobs:
 
   sonarqube-analysis:
     needs: [backend-test, frontend-test]
+    if: ${{ !github.event.inputs.skip_build }}
     runs-on: ubuntu-latest
 
     steps:
@@ -230,6 +241,7 @@ jobs:
 
   publish:
     needs: [sonarqube-analysis] # Теперь публикация зависит от успешного анализа SonarQube
+    if: ${{ !github.event.inputs.skip_build }}
     runs-on: ubuntu-latest
 
     steps:
@@ -305,6 +317,7 @@ jobs:
 
   deploy:
     needs: [publish]
+    if: ${{ !github.event.inputs.skip_build }}
     runs-on: ubuntu-latest
 
     steps:
@@ -328,8 +341,49 @@ jobs:
 
   deploy-services:
     needs: [deploy]
+    if: ${{ !github.event.inputs.skip_build }}
     runs-on: ubuntu-latest
 
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl config view
+          kubectl cluster-info
+
+      - name: Create PV directories
+        run: |
+          # Создаем namespace
+          kubectl apply -f project/kubernetes/namespace.yaml
+          # Ждем создания namespace
+          until kubectl get namespace lab4-app &> /dev/null; do
+            echo "Waiting for namespace lab4-app to be created..."
+            sleep 2
+          done
+          # Применяем DaemonSet для создания директорий
+          kubectl apply -f project/kubernetes/scripts/create-pv-dirs.yaml
+          # Ждем пока поды запустятся
+          kubectl wait --for=condition=ready pod -l name=create-pv-dirs -n lab4-app --timeout=60s
+          # Даем время на создание директорий
+          sleep 10
+          # Удаляем DaemonSet
+          kubectl delete -f project/kubernetes/scripts/create-pv-dirs.yaml
+
+      - name: Make setup script executable
+        run: chmod +x project/kubernetes/setup-services.sh
+
+      - name: Run Services Setup Script
+        run: |
+          cd project/kubernetes
+          ./setup-services.sh
+
+  deploy-only:
+    if: ${{ github.event.inputs.skip_build }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
