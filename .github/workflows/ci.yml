@@ -5,7 +5,6 @@ on:
     branches: [main, lab4]
   pull_request:
     branches: [main, lab4]
-  # Добавляем возможность ручного запуска с опцией пересоздания сервисов
   workflow_dispatch:
     inputs:
       run_setup_services:
@@ -15,28 +14,28 @@ on:
         default: false
 
 jobs:
-  # telegram-start-notification:
-  #   runs-on: ubuntu-latest
-  #   if: always()
+  telegram-start-notification:
+    runs-on: ubuntu-latest
+    if: always()
 
-  #   steps:
-  #     - name: Send Telegram start notification
-  #       env:
-  #         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-  #         TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
-  #         GITHUB_REF: ${{ github.ref }}
-  #         GITHUB_SHA: ${{ github.sha }}
-  #         GITHUB_WORKFLOW: ${{ github.workflow }}
-  #       run: |
-  #         MESSAGE=$(printf "📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n▶️ *Старт* на ветке \`${GITHUB_REF}\` (коммит \`${GITHUB_SHA::8}\`).\n")
-  #         MESSAGE+=$(printf "\n")
+    steps:
+      - name: Send Telegram start notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+        run: |
+          MESSAGE=$(printf "📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n▶️ *Старт* на ветке \`${GITHUB_REF}\` (коммит \`${GITHUB_SHA::8}\`).\n")
+          MESSAGE+=$(printf "\n")
 
-  #         USERS=${{ secrets.TELEGRAM_USER_IDS }}
-  #         IFS=',' read -ra USER_IDS <<< "$USERS"
-  #         for user_id in "${USER_IDS[@]}"; do
-  #           echo "Sending start notification to user ID: $user_id"
-  #           curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
-  #         done
+          USERS=${{ secrets.TELEGRAM_USER_IDS }}
+          IFS=',' read -ra USER_IDS <<< "$USERS"
+          for user_id in "${USER_IDS[@]}"; do
+            echo "Sending start notification to user ID: $user_id"
+            curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+          done
 
   build:
     runs-on: ubuntu-latest
@@ -49,23 +48,18 @@ jobs:
 
       - name: Настройка доступа к проекту
         run: |
-          # Копируем актуальный docker-compose.yml из директории project в корень
           cp project/docker-compose.yml ./docker-compose.yml
 
-          # Удаляем устаревший атрибут version из docker-compose.yml
           sed -i '/^version:/d' ./docker-compose.yml
 
       - name: Сборка Docker образов
         run: |
-          # Переходим в директорию project для доступа ко всем файлам проекта
           cd project
 
-          # Собираем образы без запуска контейнеров
           docker compose build --no-cache
 
       - name: Сохранение образов как артефакты
         run: |
-          # Сохраняем образы для последующих этапов
           docker save $(docker images -q | grep -v "<none>" | head -n2) -o docker-images.tar
 
       - name: Загрузка Docker образов как артефакт
@@ -92,7 +86,6 @@ jobs:
         run: |
           cd project/backend
           python -m pip install -r requirements.txt
-          # Устанавливаем pytest для запуска тестов
           python -m pip install pytest pytest-cov
 
       - name: Запуск тестов backend
@@ -203,12 +196,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://89.169.142.40:9002
         run: |
-          # Wait for analysis to complete in SonarQube
-          # Get the analysis ID from the previous step's output (if possible, otherwise rely on latest)
-          # For simplicity, let's just check project status repeatedly
           echo "Waiting for Quality Gate status from SonarQube..."
 
-          # Check backend project
           while : ; do
             STATUS=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=backend" | jq -r '.projectStatus.status')
             echo "Backend Quality Gate status: $STATUS"
@@ -222,7 +211,6 @@ jobs:
             sleep 10
           done
 
-          # Check frontend project (assuming projectKey is 'frontend')
           while : ; do
             STATUS=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?projectKey=frontend" | jq -r '.projectStatus.status')
             echo "Frontend Quality Gate status: $STATUS"
@@ -237,7 +225,7 @@ jobs:
           done
 
   publish:
-    needs: [sonarqube-analysis] # Теперь публикация зависит от успешного анализа SonarQube
+    needs: [sonarqube-analysis]
     runs-on: ubuntu-latest
 
     steps:
@@ -254,10 +242,8 @@ jobs:
 
       - name: Настройка проекта
         run: |
-          # Переходим в директорию project и используем docker-compose оттуда
           cd project
 
-          # Удаляем устаревший атрибут version из docker-compose.yml
           sed -i '/^version:/d' docker-compose.yml
 
       - name: Загрузка Docker образов
@@ -356,7 +342,6 @@ jobs:
           kubectl get ingress -n lab4-app
 
   deploy-services:
-    # Этот этап запускается только вручную при установленном флаге run_setup_services
     if: ${{ github.event.inputs.run_setup_services == 'true' }}
     runs-on: ubuntu-latest
 
@@ -373,20 +358,14 @@ jobs:
 
       - name: Create PV directories
         run: |
-          # Создаем namespace
           kubectl apply -f project/kubernetes/namespace.yaml
-          # Ждем создания namespace
           until kubectl get namespace lab4-app &> /dev/null; do
             echo "Waiting for namespace lab4-app to be created..."
             sleep 2
           done
-          # Применяем DaemonSet для создания директорий
           kubectl apply -f project/kubernetes/scripts/create-pv-dirs.yaml
-          # Ждем пока поды запустятся
           kubectl wait --for=condition=ready pod -l name=create-pv-dirs -n lab4-app --timeout=60s
-          # Даем время на создание директорий
           sleep 10
-          # Удаляем DaemonSet
           kubectl delete -f project/kubernetes/scripts/create-pv-dirs.yaml
 
       - name: Make setup script executable
@@ -397,35 +376,35 @@ jobs:
           cd project/kubernetes
           ./setup-services.sh
 
-  # telegram-notification:
-  #   needs: [deploy, deploy-services]
-  #   runs-on: ubuntu-latest
-  #   if: always()
+  telegram-notification:
+    needs: [deploy, deploy-services]
+    runs-on: ubuntu-latest
+    if: always()
 
-  #   steps:
-  #     - name: Send Telegram notification
-  #       env:
-  #         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-  #         TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
-  #         GITHUB_RUN_STATUS: ${{ needs.deploy.result == 'success' && needs.deploy-services.result == 'success' && 'success' || 'failure' }}
-  #         GITHUB_REF: ${{ github.ref }}
-  #         GITHUB_SHA: ${{ github.sha }}
-  #         GITHUB_WORKFLOW: ${{ github.workflow }}
-  #         GITHUB_RUN_URL: ${{ github.event.pull_request.html_url || github.event.compare.html_url || github.event.head_commit.url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  #       run: |
-  #         MESSAGE=$(printf "📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n")
+    steps:
+      - name: Send Telegram notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
+          GITHUB_RUN_STATUS: ${{ needs.deploy.result == 'success' && needs.deploy-services.result == 'success' && 'success' || 'failure' }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_URL: ${{ github.event.pull_request.html_url || github.event.compare.html_url || github.event.head_commit.url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          MESSAGE=$(printf "📦 CI/CD Workflow: ${GITHUB_WORKFLOW}\n")
 
-  #         if [ "$GITHUB_RUN_STATUS" == "success" ]; then
-  #           MESSAGE+=$(printf "\n✅ *Статус: УСПЕХ*\n")
-  #         else
-  #           MESSAGE+=$(printf "\n❌ *Статус: ОШИБКА*\n")
-  #         fi
+          if [ "$GITHUB_RUN_STATUS" == "success" ]; then
+            MESSAGE+=$(printf "\n✅ *Статус: УСПЕХ*\n")
+          else
+            MESSAGE+=$(printf "\n❌ *Статус: ОШИБКА*\n")
+          fi
 
-  #         MESSAGE+=$(printf "\n🌳 *Ветка:* \`${GITHUB_REF}\`\n🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})\n")
+          MESSAGE+=$(printf "\n🌳 *Ветка:* \`${GITHUB_REF}\`\n🛠️ *Коммит:* \`${GITHUB_SHA::8}\`\n🔗 *Подробнее:* [Ссылка на запуск](${GITHUB_RUN_URL})\n")
 
-  #         USERS=${{ secrets.TELEGRAM_USER_IDS }}
-  #         IFS=',' read -ra USER_IDS <<< "$USERS"
-  #         for user_id in "${USER_IDS[@]}"; do
-  #           echo "Sending notification to user ID: $user_id"
-  #           curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
-  #         done
+          USERS=${{ secrets.TELEGRAM_USER_IDS }}
+          IFS=',' read -ra USER_IDS <<< "$USERS"
+          for user_id in "${USER_IDS[@]}"; do
+            echo "Sending notification to user ID: $user_id"
+            curl -s -X POST https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${user_id} -d text="${MESSAGE}" -d parse_mode=Markdown || true
+          done
