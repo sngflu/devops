@@ -312,7 +312,7 @@ jobs:
   #         cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/project-frontend:buildcache,mode=max
 
   deploy:
-    needs: [publish]
+    # needs: [publish]
     runs-on: ubuntu-latest
 
     steps:
