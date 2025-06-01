@@ -34,7 +34,7 @@ function App() {
     <Router>
       <div className='App'>
         <div className='header'>
-          <Header>Weapon Detection Test</Header>
+          <Header>Weapon Detection</Header>
         </div>
         <Routes>
           <Route path="/login" element={

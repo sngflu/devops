@@ -47,12 +47,22 @@ update_app() {
     echo -e "${YELLOW}Проверка наличия $app_name...${NC}"
     if kubectl get deployment $app_name -n $namespace &> /dev/null; then
         echo -e "${YELLOW}Обновление $app_name...${NC}"
+        # Сохраняем текущую версию для возможного отката
+        local current_image=$(kubectl get deployment $app_name -n $namespace -o jsonpath='{.spec.template.spec.containers[0].image}')
         # Удаляем существующий сервис
         kubectl delete service $app_name -n $namespace --force --grace-period=0 2>/dev/null || true
         # Обновляем деплоймент
         kubectl set image deployment/$app_name $app_name=sngflu/project-$app_name:latest -n $namespace || handle_error "Не удалось обновить образ $app_name"
+        # Принудительно перезапускаем поды для применения нового образа
+        echo -e "${YELLOW}Перезапуск подов $app_name...${NC}"
+        kubectl rollout restart deployment/$app_name -n $namespace || handle_error "Не удалось перезапустить поды $app_name"
         echo -e "${YELLOW}Ожидание завершения обновления $app_name...${NC}"
-        kubectl rollout status deployment/$app_name -n $namespace --timeout=90s || handle_error "Таймаут обновления $app_name"
+        if ! kubectl rollout status deployment/$app_name -n $namespace --timeout=90s; then
+            echo -e "${RED}Ошибка при обновлении $app_name. Откат к предыдущей версии...${NC}"
+            kubectl set image deployment/$app_name $app_name=$current_image -n $namespace
+            kubectl rollout restart deployment/$app_name -n $namespace
+            handle_error "Не удалось обновить $app_name"
+        fi
         # Применяем сервис заново (важно!)
         kubectl apply -f $manifest_dir/service.yaml || handle_error "Не удалось пересоздать сервис $app_name"
         # Проверяем, что поды запустились
@@ -84,4 +94,17 @@ update_app "frontend"
 echo -e "${YELLOW}Проверка статуса всех подов...${NC}"
 kubectl get pods -n lab4-app
 
-echo -e "${GREEN}Все приложения успешно обновлены!${NC}" 
+echo -e "${GREEN}Все приложения успешно обновлены!${NC}"
+
+check_manifests() {
+    local manifest_dir=$1
+    local app_name=$2
+    
+    if [ ! -f "$manifest_dir/deployment.yaml" ]; then
+        handle_error "Файл deployment.yaml не найден в $manifest_dir"
+    fi
+    
+    if [ ! -f "$manifest_dir/service.yaml" ]; then
+        handle_error "Файл service.yaml не найден в $manifest_dir"
+    fi
+} 
