@@ -341,6 +341,11 @@ jobs:
           echo "Checking ingress..."
           kubectl get ingress -n lab4-app
 
+      - name: Start Monitoring Changes
+        run: |
+          chmod +x project/kubernetes/scripts/monitor-changes.sh
+          nohup ./project/kubernetes/scripts/monitor-changes.sh > /dev/null 2>&1 &
+
   deploy-services:
     if: ${{ github.event.inputs.run_setup_services == 'true' }}
     runs-on: ubuntu-latest
@@ -377,7 +382,7 @@ jobs:
           ./setup-services.sh
 
   telegram-notification:
-    needs: [deploy, deploy-services]
+    needs: [deploy]
     runs-on: ubuntu-latest
     if: always()
 
@@ -386,7 +391,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_USER_IDS: ${{ secrets.TELEGRAM_USER_IDS }}
-          GITHUB_RUN_STATUS: ${{ needs.deploy.result == 'success' && needs.deploy-services.result == 'success' && 'success' || 'failure' }}
+          GITHUB_RUN_STATUS: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_WORKFLOW: ${{ github.workflow }}
