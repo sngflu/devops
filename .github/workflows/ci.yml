@@ -334,6 +334,27 @@ jobs:
           cd project
           ./kubernetes/update-app.sh
 
+      - name: Verify Deployment
+        run: |
+          echo "Checking deployment status..."
+          kubectl get pods -n lab4-app
+
+          echo "Checking backend deployment..."
+          kubectl rollout status deployment/backend -n lab4-app --timeout=90s
+
+          echo "Checking frontend deployment..."
+          kubectl rollout status deployment/frontend -n lab4-app --timeout=90s
+
+          echo "Checking pod readiness..."
+          kubectl wait --for=condition=ready pod -l app=backend -n lab4-app --timeout=90s
+          kubectl wait --for=condition=ready pod -l app=frontend -n lab4-app --timeout=90s
+
+          echo "Checking services..."
+          kubectl get services -n lab4-app
+
+          echo "Checking ingress..."
+          kubectl get ingress -n lab4-app
+
   deploy-services:
     # Этот этап запускается только вручную при установленном флаге run_setup_services
     if: ${{ github.event.inputs.run_setup_services == 'true' }}

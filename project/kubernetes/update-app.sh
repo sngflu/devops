@@ -35,6 +35,7 @@ run_with_timeout 30 "kubectl cluster-info" "Проверка подключен�
 update_app() {
     local app_name=$1
     local namespace="lab4-app"
+    local manifest_dir="/home/terra/kubernetes/$app_name"
     
     echo -e "${YELLOW}Проверка наличия $app_name...${NC}"
     if kubectl get deployment $app_name -n $namespace &> /dev/null; then
@@ -42,18 +43,29 @@ update_app() {
         # Удаляем существующий сервис
         kubectl delete service $app_name -n $namespace --force --grace-period=0 2>/dev/null || true
         # Обновляем деплоймент
-        kubectl set image deployment/$app_name $app_name=ghcr.io/$GITHUB_REPOSITORY/$app_name:latest -n $namespace
+        kubectl set image deployment/$app_name $app_name=sngflu/project-$app_name:latest -n $namespace || handle_error "Не удалось обновить образ $app_name"
         echo -e "${YELLOW}Ожидание завершения обновления $app_name...${NC}"
-        kubectl rollout status deployment/$app_name -n $namespace
+        kubectl rollout status deployment/$app_name -n $namespace --timeout=90s || handle_error "Таймаут обновления $app_name"
+        
+        # Проверяем, что поды запустились
+        echo -e "${YELLOW}Проверка готовности подов $app_name...${NC}"
+        kubectl wait --for=condition=ready pod -l app=$app_name -n $namespace --timeout=90s || handle_error "Поды $app_name не запустились"
+        
         echo -e "${GREEN}$app_name успешно обновлен!${NC}"
     else
         echo -e "${YELLOW}Создание $app_name...${NC}"
         # Удаляем существующий сервис если он есть
         kubectl delete service $app_name -n $namespace --force --grace-period=0 2>/dev/null || true
         # Создаем деплоймент
-        kubectl apply -f kubernetes/$app_name/deployment.yaml
+        kubectl apply -f $manifest_dir/deployment.yaml || handle_error "Не удалось создать деплоймент $app_name"
         # Создаем сервис
-        kubectl apply -f kubernetes/$app_name/service.yaml
+        kubectl apply -f $manifest_dir/service.yaml || handle_error "Не удалось создать сервис $app_name"
+        
+        # Ждем запуска подов
+        echo -e "${YELLOW}Ожидание запуска подов $app_name...${NC}"
+        kubectl wait --for=condition=ready pod -l app=$app_name -n $namespace --timeout=90s || handle_error "Поды $app_name не запустились"
+        
+        echo -e "${GREEN}$app_name успешно создан!${NC}"
     fi
 }
 
@@ -62,5 +74,9 @@ update_app "backend"
 
 # Обновляем frontend
 update_app "frontend"
+
+# Проверяем, что все поды работают
+echo -e "${YELLOW}Проверка статуса всех подов...${NC}"
+kubectl get pods -n lab4-app
 
 echo -e "${GREEN}Все приложения успешно обновлены!${NC}" 
