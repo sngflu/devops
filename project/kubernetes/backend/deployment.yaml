@@ -51,12 +51,31 @@ spec:
           resources:
             limits:
               cpu: 300m
-              memory: 1Gi
-              ephemeral-storage: 2Gi
+              memory: 512Mi
             requests:
               cpu: 100m
               memory: 256Mi
-              ephemeral-storage: 1Gi
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: url
+            - name: MINIO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: url
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: secret-key
           volumeMounts:
             - name: storage-volume
               mountPath: /app/storage

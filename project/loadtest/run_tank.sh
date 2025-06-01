@@ -28,6 +28,6 @@ docker run \
 # После завершения теста показываем итоговую статистику
 echo -e "\n${GREEN}Тест нагрузки завершен. Итоговая информация:${NC}"
 echo -e "${BLUE}[Итоговый статус HPA]${NC}"
-kubectl get hpa -n app-namespace
+sudo kubectl get hpa -n lab4-app
 echo -e "\n${BLUE}[Итоговый статус подов]${NC}"
-kubectl get pods -n app-namespace -l app=backend 
+sudo kubectl get pods -n lab4-app -l app=backend 

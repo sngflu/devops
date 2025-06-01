@@ -44,3 +44,5 @@ terraform.tfvars
 .iso
 .img
 /loadtest/logs
+
+*.txt

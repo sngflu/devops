@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: grafana
-          image: grafana/grafana:8.5.3
+          image: grafana/grafana:10.4.2
           ports:
             - containerPort: 3000
               name: http
@@ -47,6 +47,12 @@ spec:
             - name: dashboard-performance
               mountPath: /var/lib/grafana/dashboards/performance-dashboard.json
               subPath: performance-dashboard.json
+            - name: dashboard-nodes
+              mountPath: /var/lib/grafana/dashboards/nodes-dashboard.json
+              subPath: nodes-dashboard.json
+            - name: dashboard-hpa
+              mountPath: /var/lib/grafana/dashboards/hpa-dashboard.json
+              subPath: hpa-dashboard.json
       volumes:
         - name: grafana-data
           emptyDir: {}
@@ -59,3 +65,9 @@ spec:
         - name: dashboard-performance
           configMap:
             name: grafana-dashboard-performance
+        - name: dashboard-nodes
+          configMap:
+            name: grafana-dashboard-nodes
+        - name: dashboard-hpa
+          configMap:
+            name: grafana-dashboard-hpa

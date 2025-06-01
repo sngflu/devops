@@ -4,18 +4,18 @@ metadata:
   name: backend-config
   namespace: lab4-app
 data:
-  USE_MINIO: "true"
-  DB_HOST: "postgres"
-  MINIO_ENDPOINT: "89.169.142.40:30900"
-  MINIO_ACCESS_KEY: "minioadmin"
-  MINIO_SECRET_KEY: "minioadmin"
-  MINIO_SECURE: "false"
-  MODEL_PATH: "/app/app/utils/yolov8nv2_e200_bs16.pt"
-  POSTGRES_USER: "pguser"
-  POSTGRES_PASSWORD: "pgpassword"
-  POSTGRES_DB: "pgdatabase"
+  DB_HOST: postgres
+  DB_NAME: pgdatabase
+  DB_PASSWORD: pgpassword
   DB_PORT: "5432"
-  DB_USER: "pguser"
-  DB_PASSWORD: "pgpassword"
-  DB_NAME: "pgdatabase"
+  DB_USER: pguser
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_ENDPOINT: minio:9000
+  MINIO_SECRET_KEY: minioadmin
+  MINIO_SECURE: "false"
+  MODEL_PATH: /app/app/utils/yolov8nv2_e200_bs16.pt
+  POSTGRES_DB: pgdatabase
+  POSTGRES_PASSWORD: pgpassword
+  POSTGRES_USER: pguser
+  USE_MINIO: "true"
   DEBUG:

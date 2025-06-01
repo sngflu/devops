@@ -1,13 +1,15 @@
 phantom:
-  address: 192.168.10.18:30503
+  address: 89.169.142.40:80 # Ingress адрес и порт
   uris:
     - /
     - /predict
     - /register
+  headers:
+    - "Host: api.89.169.142.40.nip.io" # Указываем Host как строку
   load_profile:
     load_type: rps
-    schedule: line(1, 100, 1m) const(100, 2m)
+    schedule: line(1, 500, 1m) const(500, 2m)
 console:
   enabled: true
 telegraf:
-  enabled: false 
+  enabled: false

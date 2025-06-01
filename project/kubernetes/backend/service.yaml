@@ -6,7 +6,7 @@ metadata:
   labels:
     app: backend
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: backend
   ports:
