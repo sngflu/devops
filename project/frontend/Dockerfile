@@ -3,11 +3,14 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Сначала копируем только package.json для установки зависимостей
 COPY package*.json ./
 RUN npm ci
 
+# Затем копируем все остальные файлы
 COPY . .
 
+# Собираем приложение
 RUN npm run build
 
 # Этап 2: Отдача статики
