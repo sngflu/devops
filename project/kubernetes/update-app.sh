@@ -35,7 +35,14 @@ run_with_timeout 30 "kubectl cluster-info" "Проверка подключен�
 update_app() {
     local app_name=$1
     local namespace="lab4-app"
-    local manifest_dir="/home/terra/kubernetes/$app_name"
+    # Определяем путь к манифестам
+    if [ -d "/home/terra/kubernetes/$app_name" ]; then
+        # Если мы на сервере
+        local manifest_dir="/home/terra/kubernetes/$app_name"
+    else
+        # Если мы в CI или локально
+        local manifest_dir="kubernetes/$app_name"
+    fi
     
     echo -e "${YELLOW}Проверка наличия $app_name...${NC}"
     if kubectl get deployment $app_name -n $namespace &> /dev/null; then
