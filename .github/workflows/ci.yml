@@ -341,11 +341,6 @@ jobs:
           echo "Checking ingress..."
           kubectl get ingress -n lab4-app
 
-      - name: Start Monitoring Changes
-        run: |
-          chmod +x project/kubernetes/scripts/monitor-changes.sh
-          nohup ./project/kubernetes/scripts/monitor-changes.sh > /dev/null 2>&1 &
-
   deploy-services:
     if: ${{ github.event.inputs.run_setup_services == 'true' }}
     runs-on: ubuntu-latest
