@@ -175,7 +175,7 @@ jobs:
             -Dsonar.python.coverage.reportPaths=coverage.xml \
             -Dsonar.coverage.exclusions=tests/**,wsgi.py,**/__init__.py \
             -Dsonar.host.url=http://89.169.142.40:9002 \
-            -Dsonar.login=$SONAR_TOKEN
+            -Dsonar.token=$SONAR_TOKEN
 
       - name: Анализ frontend (JS)
         env:
@@ -189,7 +189,7 @@ jobs:
             -Dsonar.tests=tests \
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
             -Dsonar.host.url=http://89.169.142.40:9002 \
-            -Dsonar.login=$SONAR_TOKEN
+            -Dsonar.token=$SONAR_TOKEN
 
       - name: Wait for Quality Gate status
         env:
