@@ -326,14 +326,14 @@ jobs:
           kubectl get pods -n lab4-app
 
           echo "Checking backend deployment..."
-          kubectl rollout status deployment/backend -n lab4-app --timeout=120s
+          kubectl rollout status deployment/backend -n lab4-app --timeout=90s
 
           echo "Checking frontend deployment..."
-          kubectl rollout status deployment/frontend -n lab4-app --timeout=120s
+          kubectl rollout status deployment/frontend -n lab4-app --timeout=90s
 
           echo "Checking pod readiness..."
-          kubectl wait --for=condition=ready pod -l app=backend -n lab4-app --timeout=120s
-          kubectl wait --for=condition=ready pod -l app=frontend -n lab4-app --timeout=120s
+          kubectl wait --for=condition=ready pod -l app=backend -n lab4-app --timeout=90s
+          kubectl wait --for=condition=ready pod -l app=frontend -n lab4-app --timeout=90s
 
           echo "Checking services..."
           kubectl get services -n lab4-app
