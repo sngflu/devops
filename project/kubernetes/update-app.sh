@@ -67,7 +67,19 @@ update_app() {
         kubectl apply -f $manifest_dir/service.yaml || handle_error "Не удалось пересоздать сервис $app_name"
         # Проверяем, что поды запустились
         echo -e "${YELLOW}Проверка готовности подов $app_name...${NC}"
-        kubectl wait --for=condition=ready pod -l app=$app_name -n $namespace --timeout=90s || handle_error "Поды $app_name не запустились"
+        # Ждем, пока новые поды станут готовыми (используем только активные поды)
+        if ! kubectl wait --for=condition=ready pod -l app=$app_name -n $namespace --timeout=90s 2>/dev/null; then
+            # Если wait не сработал, проверяем статус подов вручную
+            echo -e "${YELLOW}Проверка статуса подов $app_name вручную...${NC}"
+            local ready_pods=$(kubectl get pods -l app=$app_name -n $namespace --field-selector=status.phase=Running -o name 2>/dev/null | wc -l)
+            local total_pods=$(kubectl get deployment $app_name -n $namespace -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "1")
+            
+            if [ "$ready_pods" -ge "$total_pods" ]; then
+                echo -e "${GREEN}Поды $app_name готовы ($ready_pods/$total_pods)${NC}"
+            else
+                handle_error "Поды $app_name не запустились ($ready_pods/$total_pods готовы)"
+            fi
+        fi
         echo -e "${GREEN}$app_name успешно обновлен!${NC}"
     else
         echo -e "${YELLOW}Создание $app_name...${NC}"
@@ -79,7 +91,19 @@ update_app() {
         kubectl apply -f $manifest_dir/service.yaml || handle_error "Не удалось создать сервис $app_name"
         # Ждем запуска подов
         echo -e "${YELLOW}Ожидание запуска подов $app_name...${NC}"
-        kubectl wait --for=condition=ready pod -l app=$app_name -n $namespace --timeout=90s || handle_error "Поды $app_name не запустились"
+        # Ждем, пока новые поды станут готовыми
+        if ! kubectl wait --for=condition=ready pod -l app=$app_name -n $namespace --timeout=90s 2>/dev/null; then
+            # Если wait не сработал, проверяем статус подов вручную
+            echo -e "${YELLOW}Проверка статуса подов $app_name вручную...${NC}"
+            local ready_pods=$(kubectl get pods -l app=$app_name -n $namespace --field-selector=status.phase=Running -o name 2>/dev/null | wc -l)
+            local total_pods=$(kubectl get deployment $app_name -n $namespace -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "1")
+            
+            if [ "$ready_pods" -ge "$total_pods" ]; then
+                echo -e "${GREEN}Поды $app_name готовы ($ready_pods/$total_pods)${NC}"
+            else
+                handle_error "Поды $app_name не запустились ($ready_pods/$total_pods готовы)"
+            fi
+        fi
         echo -e "${GREEN}$app_name успешно создан!${NC}"
     fi
 }

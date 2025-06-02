@@ -43,3 +43,48 @@ spec:
                 name: grafana
                 port:
                   number: 3000
+
+    # ► Дополнительные правила для доступа через IP:порт
+    # - host: 89.169.142.40
+    #   http:
+    #     paths:
+    #       - path: /frontend
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: frontend
+    #             port:
+    #               number: 80
+    #       - path: /api
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: backend
+    #             port:
+    #               number: 5174
+    #       - path: /grafana
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: grafana
+    #             port:
+    #               number: 3000
+    #       - path: /
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: frontend
+    #             port:
+    #               number: 80
+
+    # ► Дополнительные сервисы (если понадобятся)
+    # - host: minio.89.169.142.40.nip.io
+    #   http:
+    #     paths:
+    #       - path: /
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: minio
+    #             port:
+    #               number: 9000
