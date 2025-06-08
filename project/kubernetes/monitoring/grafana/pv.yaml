@@ -1,0 +1,14 @@
+# grafana/pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-pv-lab4
+spec:
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  hostPath:
+    path: /mnt/k8s/grafana-pv-lab4
+  storageClassName: standard

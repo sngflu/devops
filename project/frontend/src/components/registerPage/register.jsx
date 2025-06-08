@@ -10,7 +10,7 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axiosInstance.post('http://127.0.0.1:5174/register', {
+            const response = await axiosInstance.post('/register', {
                 username,
                 password
             });

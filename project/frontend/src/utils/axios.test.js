@@ -8,7 +8,7 @@ vi.mock('axios', async (importOriginal) => {
         ...originalAxios,
         create: vi.fn(() => ({
             defaults: {
-                baseURL: 'http://127.0.0.1:5174',
+                baseURL: '/api',
             },
             interceptors: {
                 request: {
@@ -32,6 +32,12 @@ describe('Axios Instance', () => {
     });
 
     it('should have the correct base URL', () => {
-        expect(axiosInstance.defaults.baseURL).toBe('http://127.0.0.1:5174');
+        expect(axiosInstance.defaults.baseURL).toBe('/api');
     });
+});
+
+describe('axiosInstance stub', () => {
+  it('should be defined', () => {
+    expect(axiosInstance).toBeDefined();
+  });
 });

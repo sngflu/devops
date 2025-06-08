@@ -82,3 +82,9 @@ describe('DetectionResults Component', () => {
         expect(logItem.classList.contains('active')).toBe(true);
     });
 });
+
+describe('DetectionResults stub', () => {
+    it('renders with empty frameObjects', () => {
+        render(<DetectionResults frameObjects={[]} onFrameClick={() => { }} currentFrame={null} />);
+    });
+});

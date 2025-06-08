@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ReactPlayer from 'react-player';
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 import './videoCatalog.css';
 
 const VideoCatalog = () => {
@@ -20,9 +20,7 @@ const VideoCatalog = () => {
 
     const loadVideos = async () => {
         try {
-            const response = await axios.get('http://127.0.0.1:5174/videos', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await axiosInstance.get('/videos');
             setVideos(response.data);
         } catch (error) {
             console.error('Error loading videos:', error);
@@ -35,19 +33,16 @@ const VideoCatalog = () => {
         setCurrentFrame(null);
 
         try {
-            const logsResponse = await axios.get(
-                `http://127.0.0.1:5174/videos/${video.filename}/logs`,
-                { headers: { Authorization: `Bearer ${token}` } }
+            const logsResponse = await axiosInstance.get(
+                `/videos/${video.filename}/logs`
             );
 
-            const videoResponse = await fetch(
-                `http://127.0.0.1:5174/video/${video.filename}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+            const videoResponse = await axiosInstance.get(
+                `/video/${video.filename}`
             );
 
-            if (videoResponse.ok) {
-                const data = await videoResponse.json();
-                setVideoUrl(data.url);
+            if (videoResponse.data && videoResponse.data.url) {
+                setVideoUrl(videoResponse.data.url);
             }
 
             setSelectedVideo(video);
@@ -83,9 +78,7 @@ const VideoCatalog = () => {
         if (!confirm('Are you sure you want to delete this video?')) return;
 
         try {
-            await axios.delete(`http://127.0.0.1:5174/videos/${video.filename}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await axiosInstance.delete(`/videos/${video.filename}`);
             setVideos(videos.filter(v => v.filename !== video.filename));
             if (selectedVideo?.filename === video.filename) {
                 setSelectedVideo(null);
@@ -117,10 +110,9 @@ const VideoCatalog = () => {
         e.stopPropagation();
         if (editingVideo === video.filename) {
             try {
-                const response = await axios.put(
-                    `http://127.0.0.1:5174/videos/${video.filename}`,
-                    { new_name: newName },
-                    { headers: { Authorization: `Bearer ${token}` } }
+                const response = await axiosInstance.put(
+                    `/videos/${video.filename}`,
+                    { new_name: newName }
                 );
 
                 setVideos(videos.map(v => {
@@ -187,7 +179,7 @@ const VideoCatalog = () => {
                         <button className="home-btn">Home</button>
                     </Link>
                 </div>
-                {videos.map((video) => (
+                {Array.isArray(videos) && videos.map((video) => (
                     <div
                         key={video.filename}
                         className={`video-item ${selectedVideo?.filename === video.filename ? 'active' : ''}`}

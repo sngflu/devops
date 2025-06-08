@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: create-pv-dirs
+  namespace: lab4-app
+spec:
+  selector:
+    matchLabels:
+      name: create-pv-dirs
+  template:
+    metadata:
+      labels:
+        name: create-pv-dirs
+    spec:
+      containers:
+        - name: create-dirs
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              mkdir -p /mnt/k8s/grafana-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 &&
+              chmod 777 /mnt/k8s/grafana-pv-lab4 /mnt/k8s/prometheus-pv-lab4 /mnt/k8s/minio-pv-lab4 /mnt/k8s/postgres-pv-lab4 &&
+              sleep 3600
+          volumeMounts:
+            - name: host-path
+              mountPath: /mnt/k8s
+      volumes:
+        - name: host-path
+          hostPath:
+            path: /mnt/k8s
+            type: DirectoryOrCreate
+      hostNetwork: true
+      hostPID: true

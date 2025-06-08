@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: lab4-app
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5174"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        - name: wait-for-minio
+          image: busybox
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z minio 9000; do echo waiting for minio; sleep 2; done",
+            ]
+
+        - name: wait-for-postgres
+          image: busybox
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done",
+            ]
+
+      containers:
+        - name: backend
+          image: sngflu/project-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5174
+              name: http
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          resources:
+            limits:
+              cpu: 300m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: url
+            - name: MINIO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: url
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: secret-key
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /app/storage
+      volumes:
+        - name: storage-volume
+          persistentVolumeClaim:
+            claimName: storage-pvc

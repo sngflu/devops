@@ -31,20 +31,21 @@
     state: present
     update_cache: yes
 
-- name: Установка pip3
+- name: Установка python-docker
   apt:
-    name: python3-pip
+    name: python3-docker
     state: present
     update_cache: yes
 
-- name: Установка python-docker
-  pip:
-    name: docker
+- name: Установка docker-compose
+  apt:
+    name: docker-compose
     state: present
+    update_cache: yes
 
 - name: Добавление пользователя в группу docker
   user:
     name: "{{ ansible_user }}"
     groups: docker
     append: yes
-  notify: restart docker 
+  notify: restart docker

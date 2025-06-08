@@ -46,3 +46,9 @@ describe('Header Component', () => {
         expect(mockNavigate).toHaveBeenCalledWith('/');
     });
 });
+
+describe('Header stub', () => {
+    it('renders without crashing', () => {
+        render(<Header>Test</Header>);
+    });
+});

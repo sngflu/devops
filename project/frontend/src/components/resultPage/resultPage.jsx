@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import ReactPlayer from 'react-player';
 import DetectionResults from '../detectionResult/detectionResults';
+import axiosInstance from '../../utils/axios';
 import './resultPage.css';
 
 const ResultPage = () => {
@@ -14,15 +15,9 @@ const ResultPage = () => {
     useEffect(() => {
         const fetchVideo = async () => {
             try {
-                const response = await fetch(`http://127.0.0.1:5174/video/${state.video_url}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setVideoUrl(data.url);
+                const response = await axiosInstance.get(`/video/${state.video_url}`);
+                if (response.data && response.data.url) {
+                    setVideoUrl(response.data.url);
                 }
             } catch (error) {
                 console.error('Error fetching video:', error);
@@ -30,7 +25,7 @@ const ResultPage = () => {
         };
 
         fetchVideo();
-    }, [state.video_url, token]);
+    }, [state.video_url]);
 
     const handleDownload = async () => {
         if (videoUrl) {

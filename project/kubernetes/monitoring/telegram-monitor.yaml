@@ -1,0 +1,481 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegram-monitor
+  namespace: lab4-app
+  labels:
+    app: telegram-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telegram-monitor
+  template:
+    metadata:
+      labels:
+        app: telegram-monitor
+    spec:
+      serviceAccountName: telegram-monitor
+      containers:
+        - name: kubernetes-monitor
+          image: bitnami/kubectl:latest
+          command: ["/bin/bash"]
+          args: ["/scripts/monitor-changes.sh"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: kubeconfig
+              mountPath: /root/.kube
+          env:
+            - name: KUBECONFIG
+              value: /root/.kube/config
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+          securityContext:
+            runAsUser: 0
+        - name: file-monitor
+          image: ubuntu:22.04
+          command: ["/bin/bash"]
+          args:
+            [
+              "-c",
+              "apt-get update && apt-get install -y inotify-tools curl jq && curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/ && /scripts/monitor-files.sh",
+            ]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: app-data
+              mountPath: /app
+            - name: kubeconfig
+              mountPath: /root/.kube
+          env:
+            - name: KUBECONFIG
+              value: /root/.kube/config
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+          securityContext:
+            runAsUser: 0
+      volumes:
+        - name: scripts
+          configMap:
+            name: telegram-monitor-scripts
+            defaultMode: 0755
+        - name: kubeconfig
+          secret:
+            secretName: kubeconfig-secret
+            defaultMode: 0644
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: app-storage-pvc
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegram-monitor
+  namespace: lab4-app
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: telegram-monitor
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: telegram-monitor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: telegram-monitor
+subjects:
+  - kind: ServiceAccount
+    name: telegram-monitor
+    namespace: lab4-app
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-scripts
+  namespace: lab4-app
+data:
+  monitor-changes.sh: |
+    #!/bin/bash
+
+    # Логирование
+    LOG_FILE="/tmp/monitor-changes.log"
+    exec > >(tee -a "$LOG_FILE")
+    exec 2>&1
+
+    echo "$(date): Запуск мониторинга изменений..."
+
+    # Получаем токен и ID пользователей из секретов
+    TELEGRAM_BOT_TOKEN=$(kubectl get secret telegram-secret -n lab4-app -o jsonpath='{.data.token}' | base64 -d 2>/dev/null)
+    TELEGRAM_USER_IDS=$(kubectl get secret telegram-secret -n lab4-app -o jsonpath='{.data.user_ids}' | base64 -d 2>/dev/null)
+
+    if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_USER_IDS" ]; then
+        echo "Ошибка: Не удалось получить данные Telegram из секрета"
+        exit 1
+    fi
+
+    echo "Telegram бот настроен для пользователей: $TELEGRAM_USER_IDS"
+
+    # Функция для отправки уведомлений
+    send_notification() {
+        local message="$1"
+        echo "$(date): Отправка уведомления: $message"
+        
+        IFS=',' read -ra USER_IDS <<< "$TELEGRAM_USER_IDS"
+        for user_id in "${USER_IDS[@]}"; do
+            response=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+                -d "chat_id=${user_id}" \
+                -d "text=${message}" \
+                -d "parse_mode=Markdown")
+            
+            if echo "$response" | grep -q '"ok":true'; then
+                echo "✅ Уведомление отправлено пользователю $user_id"
+            else
+                echo "❌ Ошибка отправки пользователю $user_id: $response"
+            fi
+        done
+    }
+
+    # Функция для получения детальной информации о ресурсе
+    get_resource_details() {
+        local resource_type="$1"
+        local namespace="$2"
+        local current_state="$3"
+        
+        case "$resource_type" in
+            "pods")
+                echo "$current_state" | jq -r '.items[] | "• \(.metadata.name) - \(.status.phase) (\(.spec.containers[0].image // "unknown"))"'
+                ;;
+            "services")
+                echo "$current_state" | jq -r '.items[] | "• \(.metadata.name) - \(.spec.type) (\(.spec.ports[0].port // "no-port"))"'
+                ;;
+            "deployments")
+                echo "$current_state" | jq -r '.items[] | "• \(.metadata.name) - \(.status.replicas // 0)/\(.spec.replicas // 0) реплик"'
+                ;;
+            "ingress")
+                echo "$current_state" | jq -r '.items[] | "• \(.metadata.name) - \(.spec.rules[0].host // "no-host")"'
+                ;;
+            *)
+                echo "$current_state" | jq -r '.items[] | "• \(.metadata.name)"'
+                ;;
+        esac
+    }
+
+    # Функция для мониторинга изменений
+    monitor_changes() {
+        local resource_type="$1"
+        local namespace="$2"
+        local previous_state=""
+        local previous_count=0
+        
+        echo "$(date): Начинаю мониторинг $resource_type в namespace $namespace"
+        
+        while true; do
+            current_state=$(kubectl get "$resource_type" -n "$namespace" -o json 2>/dev/null)
+            
+            if [ $? -ne 0 ]; then
+                echo "$(date): Ошибка получения состояния $resource_type"
+                sleep 30
+                continue
+            fi
+            
+            current_count=$(echo "$current_state" | jq '.items | length' 2>/dev/null || echo "0")
+            
+            if [ "$previous_state" != "" ]; then
+                # Проверяем изменения
+                if [ "$current_count" -gt "$previous_count" ]; then
+                    change_type="➕ СОЗДАН"
+                    emoji="🆕"
+                elif [ "$current_count" -lt "$previous_count" ]; then
+                    change_type="➖ УДАЛЕН"
+                    emoji="🗑️"
+                elif [ "$current_state" != "$previous_state" ]; then
+                    change_type="🔄 ИЗМЕНЕН"
+                    emoji="✏️"
+                else
+                    # Нет изменений
+                    previous_state="$current_state"
+                    previous_count="$current_count"
+                    sleep 10
+                    continue
+                fi
+                
+                # Формируем сообщение
+                message="$emoji *Изменение в Kubernetes кластере*\n\n"
+                message+="📋 *Ресурс:* \`$resource_type\`\n"
+                message+="🎯 *Действие:* $change_type\n"
+                message+="🏷️ *Namespace:* \`$namespace\`\n"
+                message+="📊 *Количество:* $previous_count → $current_count\n"
+                message+="⏰ *Время:* \`$(date '+%H:%M:%S %d.%m.%Y')\`\n"
+                
+                # Добавляем детали
+                if [ "$current_count" -gt 0 ]; then
+                    message+="\n📝 *Текущее состояние:*\n"
+                    details=$(get_resource_details "$resource_type" "$namespace" "$current_state")
+                    if [ -n "$details" ]; then
+                        message+="$details"
+                    fi
+                fi
+                
+                send_notification "$message"
+            fi
+            
+            previous_state="$current_state"
+            previous_count="$current_count"
+            sleep 10
+        done
+    }
+
+    # Отправляем уведомление о запуске мониторинга
+    startup_message="🚀 *Мониторинг Kubernetes запущен*\n\n"
+    startup_message+="📅 *Время запуска:* \`$(date '+%H:%M:%S %d.%m.%Y')\`\n"
+    startup_message+="🎯 *Отслеживаемые ресурсы:*\n"
+    startup_message+="• Pods\n• Services\n• Deployments\n• Ingress\n\n"
+    startup_message+="📍 *Namespace:* \`lab4-app\`"
+
+    send_notification "$startup_message"
+
+    # Запускаем мониторинг для разных типов ресурсов в фоне
+    monitor_changes "pods" "lab4-app" &
+    monitor_changes "services" "lab4-app" &
+    monitor_changes "deployments" "lab4-app" &
+    monitor_changes "ingress" "lab4-app" &
+
+    echo "$(date): Все процессы мониторинга запущены"
+
+    # Функция для корректного завершения
+    cleanup() {
+        echo "$(date): Получен сигнал завершения, останавливаем мониторинг..."
+        
+        final_message="🛑 *Мониторинг Kubernetes остановлен*\n\n"
+        final_message+="📅 *Время остановки:* \`$(date '+%H:%M:%S %d.%m.%Y')\`"
+        
+        send_notification "$final_message"
+        
+        # Завершаем все дочерние процессы
+        jobs -p | xargs -r kill
+        exit 0
+    }
+
+    # Устанавливаем обработчик сигналов
+    trap cleanup SIGTERM SIGINT
+
+    # Ждем завершения всех процессов
+    wait
+
+  monitor-files.sh: |
+    #!/bin/bash
+
+    # Скрипт для мониторинга изменений в файлах проекта
+    # Отправляет уведомления в Telegram о добавлении, изменении или удалении файлов
+
+    LOG_FILE="/tmp/monitor-files.log"
+    exec > >(tee -a "$LOG_FILE")
+    exec 2>&1
+
+    echo "$(date): Запуск мониторинга файлов..."
+
+    # Получаем токен и ID пользователей из секретов
+    TELEGRAM_BOT_TOKEN=$(kubectl get secret telegram-secret -n lab4-app -o jsonpath='{.data.token}' | base64 -d 2>/dev/null)
+    TELEGRAM_USER_IDS=$(kubectl get secret telegram-secret -n lab4-app -o jsonpath='{.data.user_ids}' | base64 -d 2>/dev/null)
+
+    if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_USER_IDS" ]; then
+        echo "Ошибка: Не удалось получить данные Telegram из секрета"
+        exit 1
+    fi
+
+    # Директории для мониторинга
+    WATCH_DIRS=(
+        "/app/backend"
+        "/app/frontend" 
+        "/app/kubernetes"
+        "/app/storage"
+    )
+
+    # Функция для отправки уведомлений
+    send_notification() {
+        local message="$1"
+        echo "$(date): Отправка уведомления: $message"
+        
+        IFS=',' read -ra USER_IDS <<< "$TELEGRAM_USER_IDS"
+        for user_id in "${USER_IDS[@]}"; do
+            response=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+                -d "chat_id=${user_id}" \
+                -d "text=${message}" \
+                -d "parse_mode=Markdown")
+            
+            if echo "$response" | grep -q '"ok":true'; then
+                echo "✅ Уведомление отправлено пользователю $user_id"
+            else
+                echo "❌ Ошибка отправки пользователю $user_id: $response"
+            fi
+        done
+    }
+
+    # Функция для определения типа файла
+    get_file_type() {
+        local file="$1"
+        local extension="${file##*.}"
+        
+        case "$extension" in
+            "py") echo "🐍 Python" ;;
+            "js"|"jsx") echo "📜 JavaScript" ;;
+            "ts"|"tsx") echo "📘 TypeScript" ;;
+            "yaml"|"yml") echo "⚙️ YAML" ;;
+            "json") echo "📋 JSON" ;;
+            "md") echo "📖 Markdown" ;;
+            "sh") echo "🔧 Shell Script" ;;
+            "Dockerfile") echo "🐳 Docker" ;;
+            "sql") echo "🗄️ SQL" ;;
+            "css") echo "🎨 CSS" ;;
+            "html") echo "🌐 HTML" ;;
+            *) echo "📄 Файл" ;;
+        esac
+    }
+
+    # Функция для получения размера файла в читаемом формате
+    get_file_size() {
+        local file="$1"
+        if [ -f "$file" ]; then
+            local size=$(stat -c%s "$file" 2>/dev/null || echo "0")
+            if [ "$size" -gt 1048576 ]; then
+                echo "$(($size / 1048576)) MB"
+            elif [ "$size" -gt 1024 ]; then
+                echo "$(($size / 1024)) KB"
+            else
+                echo "$size B"
+            fi
+        else
+            echo "0 B"
+        fi
+    }
+
+    # Функция обработки событий inotify
+    handle_event() {
+        local event="$1"
+        local file="$2"
+        local dir="$3"
+        
+        # Игнорируем временные файлы и скрытые файлы
+        if [[ "$file" =~ ^\. ]] || [[ "$file" =~ ~$ ]] || [[ "$file" =~ \.tmp$ ]]; then
+            return
+        fi
+        
+        local full_path="$dir/$file"
+        local relative_path="${full_path#/app/}"
+        local file_type=$(get_file_type "$file")
+        local file_size=$(get_file_size "$full_path")
+        
+        case "$event" in
+            "CREATE")
+                emoji="➕"
+                action="СОЗДАН"
+                ;;
+            "DELETE")
+                emoji="🗑️"
+                action="УДАЛЕН"
+                ;;
+            "MODIFY")
+                emoji="✏️"
+                action="ИЗМЕНЕН"
+                ;;
+            "MOVE")
+                emoji="📦"
+                action="ПЕРЕМЕЩЕН"
+                ;;
+            *)
+                emoji="🔄"
+                action="ОБНОВЛЕН"
+                ;;
+        esac
+        
+        message="$emoji *Изменение файла*\n\n"
+        message+="📁 *Путь:* \`$relative_path\`\n"
+        message+="🎯 *Действие:* $action\n"
+        message+="$file_type\n"
+        
+        if [ "$event" != "DELETE" ]; then
+            message+="📏 *Размер:* $file_size\n"
+        fi
+        
+        message+="⏰ *Время:* \`$(date '+%H:%M:%S %d.%m.%Y')\`"
+        
+        send_notification "$message"
+    }
+
+    # Отправляем уведомление о запуске
+    startup_message="👁️ *Мониторинг файлов запущен*\n\n"
+    startup_message+="📅 *Время запуска:* \`$(date '+%H:%M:%S %d.%m.%Y')\`\n"
+    startup_message+="📂 *Отслеживаемые директории:*\n"
+    for dir in "${WATCH_DIRS[@]}"; do
+        if [ -d "$dir" ]; then
+            startup_message+="• \`${dir#/app/}\`\n"
+        fi
+    done
+
+    send_notification "$startup_message"
+
+    # Функция для корректного завершения
+    cleanup() {
+        echo "$(date): Получен сигнал завершения, останавливаем мониторинг файлов..."
+        
+        final_message="🛑 *Мониторинг файлов остановлен*\n\n"
+        final_message+="📅 *Время остановки:* \`$(date '+%H:%M:%S %d.%m.%Y')\`"
+        
+        send_notification "$final_message"
+        
+        # Завершаем все дочерние процессы
+        jobs -p | xargs -r kill
+        exit 0
+    }
+
+    # Устанавливаем обработчик сигналов
+    trap cleanup SIGTERM SIGINT
+
+    # Запускаем мониторинг для каждой директории
+    for dir in "${WATCH_DIRS[@]}"; do
+        if [ -d "$dir" ]; then
+            echo "$(date): Запуск мониторинга для $dir"
+            (
+                inotifywait -m -r -e create,delete,modify,move "$dir" --format '%e %f %w' 2>/dev/null | \
+                while read event file watch_dir; do
+                    handle_event "$event" "$file" "$watch_dir"
+                done
+            ) &
+        else
+            echo "$(date): Директория $dir не найдена, пропускаем"
+        fi
+    done
+
+    echo "$(date): Все процессы мониторинга файлов запущены"
+
+    # Ждем завершения всех процессов
+    wait
